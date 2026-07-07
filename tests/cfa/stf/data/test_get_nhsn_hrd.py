@@ -6,7 +6,6 @@ import pytest
 from cfa.stf.data import ensure_list, get_data
 from tests.cfa.stf.data.data_test_utils import (
     _unique_values,
-    ensure_mock_stf_catalog,
     lazy_catalog_loader,
     requires_ext_catalog,
     uses_catalog,
@@ -35,10 +34,6 @@ def nhsn_hrd_data() -> pl.DataFrame:
 def mock_nhsn_hrd_data(monkeypatch, nhsn_hrd_data: pl.DataFrame, request) -> None:
     if uses_catalog(request):
         return
-
-    ensure_mock_stf_catalog(
-        monkeypatch, get_data.datacat, "nhsn_hrd_prelim", "nhsn_hrd"
-    )
 
     get_dataframe = lazy_catalog_loader(nhsn_hrd_data)
 

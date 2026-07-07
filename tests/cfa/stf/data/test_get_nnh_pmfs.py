@@ -6,7 +6,6 @@ import pytest
 from cfa.stf.data import get_nnh_pmfs
 from tests.cfa.stf.data.data_test_utils import (
     _unique_values,
-    ensure_mock_stf_catalog,
     requires_ext_catalog,
     uses_catalog,
 )
@@ -103,8 +102,6 @@ def param_estimates() -> pl.DataFrame:
 def mock_param_estimates(monkeypatch, param_estimates: pl.DataFrame, request) -> None:
     if uses_catalog(request):
         return
-
-    ensure_mock_stf_catalog(monkeypatch, get_nnh_pmfs.datacat, "param_estimates")
 
     def get_dataframe(output: str):
         if output == "pl_lazy":

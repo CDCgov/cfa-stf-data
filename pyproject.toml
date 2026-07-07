@@ -8,6 +8,7 @@ authors = [
   {name = "CFA STF Team"},
 ]
 dependencies = [
+  "cfa.catalog.public",
   "cfa-dataops",
   "numpy>=2.2",
   "polars[pyarrow,numpy]>=1.36",
@@ -51,4 +52,5 @@ markers = [
 allow-direct-references = true
 
 [tool.uv.sources]
+"cfa.catalog.public" = {git = "https://github.com/CDCgov/cfa-catalog-pub", rev = "main"}
 cfa-dataops = {git = "https://github.com/CDCgov/cfa-dataops", rev = "main"}

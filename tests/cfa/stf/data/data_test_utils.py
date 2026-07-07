@@ -1,26 +1,7 @@
-from types import SimpleNamespace
-
 import pytest
 from cfa.cloudops.util import check_ext_env
 
 CATALOG_SKIP_REASON = "requires external CFA data environment"
-
-
-def ensure_mock_stf_catalog(monkeypatch, datacat, *dataset_names: str) -> None:
-    public = getattr(datacat, "public", SimpleNamespace())
-    monkeypatch.setattr(datacat, "public", public, raising=False)
-
-    stf = getattr(public, "stf", SimpleNamespace())
-    monkeypatch.setattr(public, "stf", stf, raising=False)
-
-    for dataset_name in dataset_names:
-        dataset = getattr(stf, dataset_name, SimpleNamespace())
-        monkeypatch.setattr(stf, dataset_name, dataset, raising=False)
-
-        load = getattr(dataset, "load", SimpleNamespace(get_dataframe=None))
-        if not hasattr(load, "get_dataframe"):
-            monkeypatch.setattr(load, "get_dataframe", None, raising=False)
-        monkeypatch.setattr(dataset, "load", load, raising=False)
 
 
 def requires_ext_catalog(test_func):

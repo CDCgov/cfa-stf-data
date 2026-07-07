@@ -6,7 +6,6 @@ import pytest
 from cfa.stf.data import ensure_list, get_data
 from tests.cfa.stf.data.data_test_utils import (
     _unique_values,
-    ensure_mock_stf_catalog,
     lazy_catalog_loader,
     requires_ext_catalog,
     uses_catalog,
@@ -85,13 +84,6 @@ def mock_nssp_data(
 ) -> None:
     if uses_catalog(request):
         return
-
-    ensure_mock_stf_catalog(
-        monkeypatch,
-        get_data.datacat,
-        "nssp_gold_v1",
-        "comprehensive_nssp_gold",
-    )
 
     monkeypatch.setattr(
         get_data.datacat.public.stf.nssp_gold_v1.load,

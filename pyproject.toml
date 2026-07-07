@@ -5,14 +5,10 @@ description = "Data access helpers for CFA short-term forecasting."
 readme = "README.md"
 requires-python = ">=3.13,<3.14"
 authors = [
-  {name = "Damon Bayer", email = "xum8@cdc.gov"},
-  {name = "Dylan H. Morris"},
-  {name = "Subekshya Bidari"},
-  {name = "Jon Kislin", email = "qxk3@cdc.gov"},
+  {name = "CFA STF Team"},
 ]
 dependencies = [
   "cfa-dataops",
-  "jax<0.10",
   "numpy>=2.2",
   "polars[pyarrow,numpy]>=1.36",
 ]

@@ -121,10 +121,6 @@ def get_nnh_delay_pmf(disease: str, as_of: dt.date | None = None) -> list[float]
     ------
     ValueError
         If exactly one delay row is not found.
-
-    Notes
-    -----
-    The first entry is forced to 0 and the distribution is renormalized.
     """
     dat_filtered = _filter_param_estimates(disease=disease, as_of=as_of)
     delay_pmf = _extract_pmf(dat_filtered, "delay")

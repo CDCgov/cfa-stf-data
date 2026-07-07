@@ -3,8 +3,7 @@ import datetime as dt
 import polars as pl
 import pytest
 
-from cfa.stf.data import get_data
-from cfa.stf.data._utils import ensure_list
+from cfa.stf.data import ensure_list, get_data
 from tests.cfa.stf.data.data_test_utils import (
     _unique_values,
     ensure_mock_stf_catalog,

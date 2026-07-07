@@ -684,6 +684,7 @@ dependencies = [
 
 [package.dev-dependencies]
 dev = [
+    { name = "cfa-cloudops" },
     { name = "ipykernel" },
     { name = "jupyter" },
     { name = "pre-commit" },
@@ -691,6 +692,7 @@ dev = [
     { name = "pytest-cov" },
 ]
 test = [
+    { name = "cfa-cloudops" },
     { name = "pytest" },
     { name = "pytest-cov" },
 ]
@@ -705,6 +707,7 @@ requires-dist = [
 
 [package.metadata.requires-dev]
 dev = [
+    { name = "cfa-cloudops", git = "https://github.com/CDCgov/cfa-cloudops" },
     { name = "ipykernel" },
     { name = "jupyter", specifier = ">=1.0.0" },
     { name = "pre-commit", specifier = ">=4.6.0" },
@@ -712,6 +715,7 @@ dev = [
     { name = "pytest-cov", specifier = ">=5.0.0" },
 ]
 test = [
+    { name = "cfa-cloudops", git = "https://github.com/CDCgov/cfa-cloudops" },
     { name = "pytest", specifier = ">=8.3.2" },
     { name = "pytest-cov", specifier = ">=5.0.0" },
 ]

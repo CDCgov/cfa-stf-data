@@ -33,6 +33,7 @@ dev = [
   "pre-commit>=4.6.0",
 ]
 test = [
+  "cfa-cloudops",
   "pytest>=8.3.2",
   "pytest-cov>=5.0.0",
 ]
@@ -48,9 +49,7 @@ markers = [
   "catalog: use the real CFA data catalog instead of mocked test data",
 ]
 
-[tool.hatch.metadata]
-allow-direct-references = true
-
 [tool.uv.sources]
 "cfa.catalog.public" = {git = "https://github.com/CDCgov/cfa-catalog-pub", rev = "main"}
+cfa-cloudops = {git = "https://github.com/CDCgov/cfa-cloudops", rev = "main" }
 cfa-dataops = {git = "https://github.com/CDCgov/cfa-dataops", rev = "main"}

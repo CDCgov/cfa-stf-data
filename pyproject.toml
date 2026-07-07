@@ -3,7 +3,7 @@ name = "cfa-stf-data"
 version = "0.1.0"
 description = "Data access helpers for CFA short-term forecasting."
 readme = "README.md"
-requires-python = ">=3.10"
+requires-python = ">=3.12"
 authors = [
   {name = "CFA STF Team"},
 ]

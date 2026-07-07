@@ -1,0 +1,59 @@
+code,abbr,hrd,name,population
+US,US,USA,United States,334735155
+01,AL,AL,Alabama,5024279
+02,AK,AK,Alaska,733391
+04,AZ,AZ,Arizona,7151502
+05,AR,AR,Arkansas,3011524
+06,CA,CA,California,39538223
+08,CO,CO,Colorado,5773714
+09,CT,CT,Connecticut,3605944
+10,DE,DE,Delaware,989948
+11,DC,DC,District of Columbia,689545
+12,FL,FL,Florida,21538187
+13,GA,GA,Georgia,10711908
+15,HI,HI,Hawaii,1455271
+16,ID,ID,Idaho,1839106
+17,IL,IL,Illinois,12812508
+18,IN,IN,Indiana,6785528
+19,IA,IA,Iowa,3190369
+20,KS,KS,Kansas,2937880
+21,KY,KY,Kentucky,4505836
+22,LA,LA,Louisiana,4657757
+23,ME,ME,Maine,1362359
+24,MD,MD,Maryland,6177224
+25,MA,MA,Massachusetts,7029917
+26,MI,MI,Michigan,10077331
+27,MN,MN,Minnesota,5706494
+28,MS,MS,Mississippi,2961279
+29,MO,MO,Missouri,6154913
+30,MT,MT,Montana,1084225
+31,NE,NE,Nebraska,1961504
+32,NV,NV,Nevada,3104614
+33,NH,NH,New Hampshire,1377529
+34,NJ,NJ,New Jersey,9288994
+35,NM,NM,New Mexico,2117522
+36,NY,NY,New York,20201249
+37,NC,NC,North Carolina,10439388
+38,ND,ND,North Dakota,779094
+39,OH,OH,Ohio,11799448
+40,OK,OK,Oklahoma,3959353
+41,OR,OR,Oregon,4237256
+42,PA,PA,Pennsylvania,13002700
+44,RI,RI,Rhode Island,1097379
+45,SC,SC,South Carolina,5118425
+46,SD,SD,South Dakota,886667
+47,TN,TN,Tennessee,6910840
+48,TX,TX,Texas,29145505
+49,UT,UT,Utah,3271616
+50,VT,VT,Vermont,643077
+51,VA,VA,Virginia,8631393
+53,WA,WA,Washington,7705281
+54,WV,WV,West Virginia,1793716
+55,WI,WI,Wisconsin,5893718
+56,WY,WY,Wyoming,576851
+60,AS,AS,American Samoa,
+66,GU,GU,Guam,
+69,MP,MP,Northern Mariana Islands,
+72,PR,PR,Puerto Rico,3285874
+74,UM,UM,U.S. Minor Outlying Islands,
+78,VI,VI,U.S. Virgin Islands,

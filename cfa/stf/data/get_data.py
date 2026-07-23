@@ -6,9 +6,47 @@ from typing import Literal, overload
 import polars as pl
 from cfa.dataops import datacat
 
-from ._utils import ensure_list
+from ._utils import _version_to_datetime, ensure_list
 
 NSSPDataset = Literal["gold", "comprehensive"]
+
+
+def _version_spec(as_of: dt.date | None) -> str:
+    as_of = as_of or dt.date.max
+    return f"<={as_of.strftime('%Y-%m-%dT%H-%M-%S')}"
+
+
+def _get_nhsn_hrd_dataset(prelim: bool):
+    return datacat.public.stf.nhsn_hrd_prelim if prelim else datacat.public.stf.nhsn_hrd
+
+
+def resolve_nhsn_hrd_version(
+    prelim: bool = True,
+    as_of: dt.date | None = None,
+) -> dt.datetime | str | None:
+    """Resolve the catalog version that :func:`get_nhsn_hrd` would load.
+
+    Parameters
+    ----------
+    prelim
+        Whether to resolve the ``nhsn_hrd_prelim`` dataset rather than
+        ``nhsn_hrd``.
+    as_of
+        The latest catalog version date to consider. If None, resolves the
+        most recent available version.
+
+    Returns
+    -------
+    datetime.datetime | str | None
+        The selected catalog version converted to a datetime when possible,
+        or None if no version matches.
+    """
+    version = (
+        _get_nhsn_hrd_dataset(prelim)
+        .load.resolve_version(version_spec=_version_spec(as_of))
+        .version
+    )
+    return _version_to_datetime(version)
 
 
 @overload
@@ -75,9 +113,6 @@ def get_nhsn_hrd(
         Filtered data in long format with columns:
         `weekendingdate`, `jurisdiction`, `disease`, and `hospital_admissions`.
     """
-    if not as_of:
-        as_of = dt.date.max
-
     disease = ensure_list(disease)
     get_all_diseases = not disease
 
@@ -108,13 +143,11 @@ def get_nhsn_hrd(
     if end_date:
         filters.append(pl.col("weekendingdate") <= end_date)
 
-    datacat_dataset = (
-        datacat.public.stf.nhsn_hrd_prelim if prelim else datacat.public.stf.nhsn_hrd
-    )
+    datacat_dataset = _get_nhsn_hrd_dataset(prelim)
 
     dat = (
         datacat_dataset.load.get_dataframe(
-            output="pl_lazy", version_spec=f"<={as_of.strftime('%Y-%m-%dT%H-%M-%S')}"
+            output="pl_lazy", version_spec=_version_spec(as_of)
         )
         .select(raw_disease_col + ["weekendingdate", "jurisdiction"])
         .with_columns(
@@ -149,6 +182,47 @@ def get_nhsn_hrd(
     if not lazy:
         dat = dat.collect()
     return dat
+
+
+def _get_nssp_dataset(dataset: NSSPDataset):
+    dataset_map = {
+        "gold": datacat.public.stf.nssp_gold_v1,
+        "comprehensive": datacat.public.stf.comprehensive_nssp_gold,
+    }
+
+    if not (datacat_dataset := dataset_map.get(dataset)):
+        raise ValueError(
+            f"Invalid dataset: {dataset!r}. Expected one of: {set(dataset_map)!r}."
+        )
+    return datacat_dataset
+
+
+def resolve_nssp_version(
+    dataset: NSSPDataset = "gold",
+    as_of: dt.date | None = None,
+) -> dt.datetime | str | None:
+    """Resolve the catalog version that :func:`get_nssp` would load.
+
+    Parameters
+    ----------
+    dataset
+        One of the two NSSP datasets: ``"gold"`` or ``"comprehensive"``.
+    as_of
+        The latest catalog version date to consider. If None, resolves the
+        most recent available version.
+
+    Returns
+    -------
+    datetime.datetime | str | None
+        The selected catalog version converted to a datetime when possible,
+        or None if no version matches.
+    """
+    version = (
+        _get_nssp_dataset(dataset)
+        .load.resolve_version(version_spec=_version_spec(as_of))
+        .version
+    )
+    return _version_to_datetime(version)
 
 
 @overload
@@ -224,24 +298,13 @@ def get_nssp(
     - The function handles special naming for COVID-19/Omicron, converting it to "COVID-19".
     - The function only includes data from parquet files with dates up to and including the as_of date.
     """
-    if as_of is None:
-        as_of = dt.date.max
-
     loc_abb = ensure_list(loc_abb)
     get_all_locs = not loc_abb
 
     disease = ensure_list(disease)
     get_all_diseases = not disease
 
-    dataset_map = {
-        "gold": datacat.public.stf.nssp_gold_v1,
-        "comprehensive": datacat.public.stf.comprehensive_nssp_gold,
-    }
-
-    if not (datacat_dataset := dataset_map.get(dataset)):
-        raise ValueError(
-            f"Invalid dataset: {dataset!r}. Expected one of: {set(dataset_map)!r}."
-        )
+    datacat_dataset = _get_nssp_dataset(dataset)
 
     national_required = get_all_locs or "US" in loc_abb
 
@@ -259,7 +322,7 @@ def get_nssp(
     dat = (
         datacat_dataset.load.get_dataframe(
             output="pl_lazy",
-            version_spec=f"<={as_of.strftime('%Y-%m-%dT%H-%M-%S')}",
+            version_spec=_version_spec(as_of),
         )
         .with_columns(
             pl.col("disease").cast(pl.String).replace("COVID-19/Omicron", "COVID-19")

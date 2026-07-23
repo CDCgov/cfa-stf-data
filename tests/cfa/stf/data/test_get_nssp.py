@@ -235,3 +235,11 @@ def test_catalog_get_nssp_returns_all_locations_and_diseases() -> None:
         result, "disease"
     )
     assert {"US", "CA", "SD"}.issubset(_unique_values(result, "geo_value"))
+
+
+@requires_ext_catalog
+@pytest.mark.parametrize("dataset", ["gold", "comprehensive"])
+def test_catalog_resolve_nssp_version(dataset) -> None:
+    result = get_data.resolve_nssp_version(dataset=dataset)
+
+    assert isinstance(result, dt.datetime)

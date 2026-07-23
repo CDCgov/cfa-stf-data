@@ -153,3 +153,11 @@ def test_catalog_get_nhsn_hrd_returns_all_locations_and_diseases() -> None:
 
     assert {"COVID-19", "Influenza", "RSV"} == _unique_values(result, "disease")
     assert {"US", "CA", "SD"}.issubset(_unique_values(result, "jurisdiction"))
+
+
+@requires_ext_catalog
+@pytest.mark.parametrize("prelim", [True, False])
+def test_catalog_resolve_nhsn_hrd_version(prelim) -> None:
+    result = get_data.resolve_nhsn_hrd_version(prelim=prelim)
+
+    assert isinstance(result, dt.datetime)

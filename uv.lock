@@ -586,8 +586,8 @@ dependencies = [
 
 [[package]]
 name = "cfa-dataops"
-version = "2026.6.30.0"
-source = { git = "https://github.com/CDCgov/cfa-dataops.git?rev=main#e92b3b89e212d1a93396cb12189d2cf6aea1af27" }
+version = "2026.7.22.0"
+source = { git = "https://github.com/CDCgov/cfa-dataops.git?rev=main#c16a92022be5884576341d19abece1003df2f775" }
 dependencies = [
     { name = "altair" },
     { name = "cfa-cloudops" },
@@ -651,7 +651,7 @@ requires-dist = [
 
 [package.metadata.requires-dev]
 dev = [
-    { name = "cfa-cloudops", git = "https://github.com/CDCgov/cfa-cloudops?rev=main" },
+    { name = "cfa-cloudops", git = "https://github.com/CDCgov/cfa-cloudops.git" },
     { name = "ipykernel" },
     { name = "jupyter", specifier = ">=1.0.0" },
     { name = "pre-commit", specifier = ">=4.6.0" },
@@ -659,7 +659,7 @@ dev = [
     { name = "pytest-cov", specifier = ">=5.0.0" },
 ]
 test = [
-    { name = "cfa-cloudops", git = "https://github.com/CDCgov/cfa-cloudops?rev=main" },
+    { name = "cfa-cloudops", git = "https://github.com/CDCgov/cfa-cloudops.git" },
     { name = "pytest", specifier = ">=8.3.2" },
     { name = "pytest-cov", specifier = ">=5.0.0" },
 ]

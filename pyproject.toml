@@ -9,7 +9,7 @@ authors = [
 ]
 dependencies = [
   "cfa.catalog.public",
-  "cfa-dataops",
+  "cfa-dataops>=2026.07.22.0",
   "numpy>=2.2",
   "polars[pyarrow,numpy]>=1.36",
 ]
@@ -51,5 +51,5 @@ markers = [
 
 [tool.uv.sources]
 "cfa.catalog.public" = {git = "https://github.com/CDCgov/cfa-catalog-pub", rev = "main"}
-cfa-cloudops = {git = "https://github.com/CDCgov/cfa-cloudops", rev = "main" }
+cfa-cloudops = {git = "https://github.com/CDCgov/cfa-cloudops.git"}
 cfa-dataops = {git = "https://github.com/CDCgov/cfa-dataops", rev = "main"}

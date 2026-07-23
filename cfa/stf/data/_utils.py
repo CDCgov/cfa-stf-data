@@ -1,5 +1,21 @@
+import datetime as dt
 from collections.abc import Iterable
 from typing import overload
+
+
+def _version_to_datetime(version: str | None) -> dt.datetime | str | None:
+    if version is None:
+        return None
+
+    try:
+        return dt.datetime.fromisoformat(version)
+    except ValueError:
+        pass
+
+    try:
+        return dt.datetime.strptime(version, "%Y-%m-%dT%H-%M-%S")
+    except ValueError:
+        return version
 
 
 @overload

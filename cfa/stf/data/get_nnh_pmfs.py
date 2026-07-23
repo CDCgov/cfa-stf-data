@@ -4,6 +4,28 @@ from typing import Literal, overload
 import polars as pl
 from cfa.dataops import datacat
 
+from ._utils import _version_to_datetime
+
+
+def _resolve_param_estimates_version() -> dt.datetime | str | None:
+    version = datacat.public.stf.param_estimates.load.resolve_version().version
+    return _version_to_datetime(version)
+
+
+def resolve_nnh_generation_interval_pmf_version() -> dt.datetime | str | None:
+    """Resolve the parameter-estimates version used for the generation PMF."""
+    return _resolve_param_estimates_version()
+
+
+def resolve_nnh_delay_pmf_version() -> dt.datetime | str | None:
+    """Resolve the parameter-estimates version used for the delay PMF."""
+    return _resolve_param_estimates_version()
+
+
+def resolve_nnh_right_truncation_pmf_version() -> dt.datetime | str | None:
+    """Resolve the parameter-estimates version used for right truncation."""
+    return _resolve_param_estimates_version()
+
 
 def _extract_pmf(
     df: pl.DataFrame | pl.LazyFrame,

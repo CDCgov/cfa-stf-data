@@ -261,3 +261,18 @@ def test_catalog_get_nnh_right_truncation_pmf_returns_pmf(
     )
 
     _assert_pmf(result)
+
+
+@requires_ext_catalog
+@pytest.mark.parametrize(
+    "resolver",
+    [
+        get_nnh_pmfs.resolve_nnh_generation_interval_pmf_version,
+        get_nnh_pmfs.resolve_nnh_delay_pmf_version,
+        get_nnh_pmfs.resolve_nnh_right_truncation_pmf_version,
+    ],
+)
+def test_catalog_resolve_nnh_pmf_version(resolver) -> None:
+    result = resolver()
+
+    assert isinstance(result, dt.datetime)

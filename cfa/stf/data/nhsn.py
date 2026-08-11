@@ -52,7 +52,7 @@ def resolve_nhsn_hrd_version(
 @overload
 def get_nhsn_hrd(
     disease: str | Iterable[str] | None = None,
-    loc_abb: str | Iterable[str] | None = None,
+    state_abb: str | Iterable[str] | None = None,
     prelim: bool = ...,
     as_of: dt.date | None = ...,
     start_date: dt.date | None = ...,
@@ -64,7 +64,7 @@ def get_nhsn_hrd(
 @overload
 def get_nhsn_hrd(
     disease: str | Iterable[str] | None = None,
-    loc_abb: str | Iterable[str] | None = None,
+    state_abb: str | Iterable[str] | None = None,
     prelim: bool = ...,
     as_of: dt.date | None = ...,
     start_date: dt.date | None = ...,
@@ -75,7 +75,7 @@ def get_nhsn_hrd(
 
 def get_nhsn_hrd(
     disease: str | Iterable[str] | None = None,
-    loc_abb: str | Iterable[str] | None = None,
+    state_abb: str | Iterable[str] | None = None,
     prelim: bool = True,
     as_of: dt.date | None = None,
     start_date: dt.date | None = None,
@@ -94,7 +94,7 @@ def get_nhsn_hrd(
     disease
         The canonical disease name to filter for ("covid", "flu", or "rsv").
         If None, all diseases are included.
-    loc_abb
+    state_abb
         The location abbreviation to filter for. If None, all locations are included.
     prelim
         Whether to retrieve "nhsn_hrd_prelim" data as opposed to "nhsn_hrd" data (defaults to True).
@@ -112,13 +112,13 @@ def get_nhsn_hrd(
     -------
     pl.DataFrame | pl.LazyFrame
         Filtered data in long format with columns:
-        `weekendingdate`, `jurisdiction`, `disease`, and `hospital_admissions`.
+        `date`, `state_abb`, `disease`, and `hospital_admissions`.
     """
     disease = canonicalize_diseases(disease)
     get_all_diseases = not disease
 
-    loc_abb = ensure_list(loc_abb)
-    get_all_locs = not loc_abb
+    state_abb = ensure_list(state_abb)
+    get_all_locs = not state_abb
 
     nhsn_disease_map = {
         "covid": "totalconfc19newadm",
@@ -138,11 +138,11 @@ def get_nhsn_hrd(
 
     filters = []
     if not get_all_locs:
-        filters.append(pl.col("jurisdiction").is_in(loc_abb))
+        filters.append(pl.col("state_abb").is_in(state_abb))
     if start_date:
-        filters.append(pl.col("weekendingdate") >= start_date)
+        filters.append(pl.col("date") >= start_date)
     if end_date:
-        filters.append(pl.col("weekendingdate") <= end_date)
+        filters.append(pl.col("date") <= end_date)
 
     datacat_dataset = _get_nhsn_hrd_dataset(prelim)
 
@@ -151,20 +151,21 @@ def get_nhsn_hrd(
             output="pl_lazy", version_spec=_version_spec(as_of)
         )
         .select(raw_disease_col + ["weekendingdate", "jurisdiction"])
+        .rename({"weekendingdate": "date", "jurisdiction": "state_abb"})
         .with_columns(
-            pl.col("jurisdiction").replace_strict(
-                {"USA": "US"}, default=pl.col("jurisdiction")
+            pl.col("state_abb").replace_strict(
+                {"USA": "US"}, default=pl.col("state_abb")
             )
         )
         .filter(*filters)
         .rename(inv_nhsn_disease_map)
         .unpivot(
             on=disease_valid,
-            index=["weekendingdate", "jurisdiction"],
+            index=["date", "state_abb"],
             variable_name="disease",
             value_name="hospital_admissions",
         )
-        .sort("jurisdiction", "disease", "weekendingdate")
+        .sort("state_abb", "disease", "date")
     )
 
     if not get_all_diseases:
@@ -175,9 +176,9 @@ def get_nhsn_hrd(
             )
     if not get_all_locs:
         result_loc_abbr = (
-            dat.unique("jurisdiction").collect().get_column("jurisdiction").to_list()
+            dat.unique("state_abb").collect().get_column("state_abb").to_list()
         )
-        if missing_locs := set(loc_abb) - set(result_loc_abbr):
+        if missing_locs := set(state_abb) - set(result_loc_abbr):
             warnings.warn(f"Requested locations {missing_locs} not found in results.")
 
     if not lazy:

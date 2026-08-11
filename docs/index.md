@@ -29,7 +29,7 @@ from cfa.stf.data import get_nssp
 
 nssp = get_nssp(
     disease=["flu", "rsv"],
-    loc_abb="CA",
+    state_abb="CA",
     as_of=dt.date(2026, 1, 15),
     start_date=dt.date(2025, 10, 1),
 )

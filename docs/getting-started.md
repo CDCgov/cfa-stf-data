@@ -20,14 +20,14 @@ from cfa.stf.data import get_nhsn_hrd
 
 admissions = get_nhsn_hrd(
     disease="flu",
-    loc_abb=["CA", "OR", "WA"],
+    state_abb=["CA", "OR", "WA"],
     start_date=dt.date(2025, 10, 1),
     end_date=dt.date(2026, 3, 31),
     lazy=False,
 )
 ```
 
-The eager result contains `weekendingdate`, `jurisdiction`, `disease`, and `hospital_admissions`.
+The eager result contains `date`, `state_abb`, `disease`, and `hospital_admissions`.
 
 ## Retrieve NSSP emergency department visits
 
@@ -38,7 +38,7 @@ from cfa.stf.data import get_nssp
 
 visits = get_nssp(
     disease=["covid", "flu", "rsv"],
-    loc_abb="US",
+    state_abb="US",
 )
 
 visits = visits.filter(
@@ -48,10 +48,10 @@ visits = visits.filter(
 ```
 
 `get_nssp` returns a `polars.LazyFrame` unless `lazy=False`.
-Its columns are `reference_date`, `disease`, `geo_value`, and `value`.
+Its columns are `date`, `disease`, `state_abb`, and `value`.
 
 !!! note "National NSSP values"
-    When `loc_abb="US"`, values are computed by aggregating the available geographic rows in the selected catalog dataset and vintage.
+    When `state_abb="US"`, values are computed by aggregating the available geographic rows in the selected catalog dataset and vintage.
 
 ## Flag an incomplete tail
 
@@ -60,7 +60,7 @@ from cfa.stf.data import get_nssp_with_exclusion
 
 visits = get_nssp_with_exclusion(
     disease="flu",
-    loc_abb="CA",
+    state_abb="CA",
     exclusion_strategy="tail_by_n",
     n=3,
 )

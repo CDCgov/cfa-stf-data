@@ -11,16 +11,16 @@ nssp_exclusion = importlib.import_module("cfa.stf.data.nssp_with_exclusion")
 
 
 def make_nssp_series(
-    reference_dates: list[dt.date],
+    dates: list[dt.date],
     values: list[int],
     disease: str = "rsv",
-    geo_value: str = "LA",
+    state_abb: str = "LA",
 ) -> pl.DataFrame:
     return pl.DataFrame(
         {
-            "reference_date": reference_dates,
-            "disease": [disease] * len(reference_dates),
-            "geo_value": [geo_value] * len(reference_dates),
+            "date": dates,
+            "disease": [disease] * len(dates),
+            "state_abb": [state_abb] * len(dates),
             "value": values,
         }
     )
@@ -29,7 +29,7 @@ def make_nssp_series(
 @pytest.fixture
 def single_series_nssp_data() -> pl.DataFrame:
     return make_nssp_series(
-        reference_dates=[
+        dates=[
             dt.date(2024, 1, 6),
             dt.date(2024, 1, 13),
             dt.date(2024, 1, 20),
@@ -51,17 +51,17 @@ def mock_get_nssp(monkeypatch, single_series_nssp_data: pl.DataFrame) -> list[di
     return calls
 
 
-def test_tail_by_n_excludes_final_n_reference_dates(mock_get_nssp) -> None:
+def test_tail_by_n_excludes_final_n_dates(mock_get_nssp) -> None:
     result = get_nssp_with_exclusion(
         as_of=dt.date(2024, 2, 1),
-        loc_abb="LA",
+        state_abb="LA",
         disease="rsv",
         exclusion_strategy="tail_by_n",
         n=2,
     )
 
-    assert result.select("reference_date", "exclude").to_dict(as_series=False) == {
-        "reference_date": [
+    assert result.select("date", "exclude").to_dict(as_series=False) == {
+        "date": [
             dt.date(2024, 1, 6),
             dt.date(2024, 1, 13),
             dt.date(2024, 1, 20),
@@ -73,7 +73,7 @@ def test_tail_by_n_excludes_final_n_reference_dates(mock_get_nssp) -> None:
 
 def test_normalizes_legacy_disease_input(mock_get_nssp) -> None:
     result = get_nssp_with_exclusion(
-        loc_abb="LA",
+        state_abb="LA",
         disease="RSV",
         exclusion_strategy="tail_by_n",
         n=1,
@@ -83,9 +83,9 @@ def test_normalizes_legacy_disease_input(mock_get_nssp) -> None:
     assert mock_get_nssp[0]["disease"] == "rsv"
 
 
-def test_tail_by_n_uses_unique_reference_dates(monkeypatch) -> None:
+def test_tail_by_n_uses_unique_dates(monkeypatch) -> None:
     nssp_data = make_nssp_series(
-        reference_dates=[
+        dates=[
             dt.date(2024, 1, 6),
             dt.date(2024, 1, 13),
             dt.date(2024, 1, 13),
@@ -96,16 +96,19 @@ def test_tail_by_n_uses_unique_reference_dates(monkeypatch) -> None:
     monkeypatch.setattr(nssp_exclusion, "get_nssp", lambda **kwargs: nssp_data)
 
     result = get_nssp_with_exclusion(
-        loc_abb="LA",
+        state_abb="LA",
         disease="rsv",
         exclusion_strategy="tail_by_n",
         n=1,
     )
 
-    assert result.filter(pl.col("reference_date") == dt.date(2024, 1, 13))[
+    assert result.filter(pl.col("date") == dt.date(2024, 1, 13))[
         "exclude"
-    ].to_list() == [False, False]
-    assert result.filter(pl.col("reference_date") == dt.date(2024, 1, 20))[
+    ].to_list() == [
+        False,
+        False,
+    ]
+    assert result.filter(pl.col("date") == dt.date(2024, 1, 20))[
         "exclude"
     ].to_list() == [True]
 
@@ -130,7 +133,7 @@ def test_auto_strategies_use_expected_exclusion_series(
         calls.append(kwargs)
         return pl.DataFrame(
             {
-                "reference_date": [
+                "date": [
                     dt.date(2024, 1, 6),
                     dt.date(2024, 1, 13),
                     dt.date(2024, 1, 20),
@@ -144,7 +147,7 @@ def test_auto_strategies_use_expected_exclusion_series(
 
     result = get_nssp_with_exclusion(
         as_of=dt.date(2024, 2, 1),
-        loc_abb="LA",
+        state_abb="LA",
         disease="rsv",
         start_date=dt.date(2024, 1, 6),
         end_date=dt.date(2024, 1, 27),
@@ -155,7 +158,7 @@ def test_auto_strategies_use_expected_exclusion_series(
     assert result["exclude"].to_list() == [False, False, False, True]
     assert calls == [
         {
-            "loc_abb": "LA",
+            "state_abb": "LA",
             "as_of": dt.date(2024, 2, 1),
             "start_date": dt.date(2024, 1, 6),
             "end_date": dt.date(2024, 1, 27),
@@ -174,7 +177,7 @@ def test_auto_strategy_forwards_exclusion_strategy_args(
         calls.append(kwargs)
         return pl.DataFrame(
             {
-                "reference_date": [
+                "date": [
                     dt.date(2024, 1, 6),
                     dt.date(2024, 1, 13),
                     dt.date(2024, 1, 20),
@@ -188,7 +191,7 @@ def test_auto_strategy_forwards_exclusion_strategy_args(
 
     get_nssp_with_exclusion(
         as_of=dt.date(2024, 2, 1),
-        loc_abb="LA",
+        state_abb="LA",
         disease="rsv",
         exclusion_strategy="tail_by_target_disease",
         loc_estimator="mean",
@@ -200,7 +203,7 @@ def test_auto_strategy_forwards_exclusion_strategy_args(
     assert mock_get_nssp == [
         {
             "as_of": dt.date(2024, 2, 1),
-            "loc_abb": "LA",
+            "state_abb": "LA",
             "disease": "rsv",
             "dataset": "gold",
             "start_date": None,
@@ -210,7 +213,7 @@ def test_auto_strategy_forwards_exclusion_strategy_args(
     ]
     assert calls == [
         {
-            "loc_abb": "LA",
+            "state_abb": "LA",
             "as_of": dt.date(2024, 2, 1),
             "start_date": None,
             "end_date": None,
@@ -225,7 +228,7 @@ def test_auto_strategy_forwards_exclusion_strategy_args(
 
 def test_exclude_tail_auto_applies_nowcast_adjustment(monkeypatch) -> None:
     nssp_data = make_nssp_series(
-        reference_dates=[
+        dates=[
             dt.date(2024, 1, 6),
             dt.date(2024, 1, 13),
             dt.date(2024, 1, 20),
@@ -250,7 +253,7 @@ def test_exclude_tail_auto_applies_nowcast_adjustment(monkeypatch) -> None:
 
     unadjusted = nssp_exclusion.exclude_tail_auto(
         as_of=dt.date(2024, 2, 15),
-        loc_abb="LA",
+        state_abb="LA",
         exclusion_calc_disease="rsv",
         max_tail_length=2,
         outlier_multiplier=4.5,
@@ -258,7 +261,7 @@ def test_exclude_tail_auto_applies_nowcast_adjustment(monkeypatch) -> None:
     )
     adjusted = nssp_exclusion.exclude_tail_auto(
         as_of=dt.date(2024, 2, 15),
-        loc_abb="LA",
+        state_abb="LA",
         exclusion_calc_disease="rsv",
         max_tail_length=2,
         outlier_multiplier=4.5,
@@ -270,7 +273,7 @@ def test_exclude_tail_auto_applies_nowcast_adjustment(monkeypatch) -> None:
     assert pmf_calls == [
         {
             "as_of": dt.date(2024, 2, 15),
-            "loc_abb": "LA",
+            "state_abb": "LA",
             "disease": "rsv",
         }
     ]
@@ -282,7 +285,7 @@ def test_exclude_tail_auto_normalizes_legacy_disease_input(monkeypatch) -> None:
     def _get_nssp(**kwargs) -> pl.DataFrame:
         calls.append(kwargs)
         return make_nssp_series(
-            reference_dates=[dt.date(2024, 1, 6), dt.date(2024, 1, 13)],
+            dates=[dt.date(2024, 1, 6), dt.date(2024, 1, 13)],
             values=[10, 20],
             disease="total",
         )
@@ -290,7 +293,7 @@ def test_exclude_tail_auto_normalizes_legacy_disease_input(monkeypatch) -> None:
     monkeypatch.setattr(nssp_exclusion, "get_nssp", _get_nssp)
 
     nssp_exclusion.exclude_tail_auto(
-        loc_abb="LA",
+        state_abb="LA",
         exclusion_calc_disease="Total",
     )
 
@@ -300,7 +303,7 @@ def test_exclude_tail_auto_normalizes_legacy_disease_input(monkeypatch) -> None:
 def test_forwards_nssp_query_args(mock_get_nssp) -> None:
     get_nssp_with_exclusion(
         as_of=dt.date(2024, 2, 1),
-        loc_abb="LA",
+        state_abb="LA",
         disease="rsv",
         dataset="comprehensive",
         start_date=dt.date(2024, 1, 6),
@@ -312,7 +315,7 @@ def test_forwards_nssp_query_args(mock_get_nssp) -> None:
     assert mock_get_nssp == [
         {
             "as_of": dt.date(2024, 2, 1),
-            "loc_abb": "LA",
+            "state_abb": "LA",
             "disease": "rsv",
             "dataset": "comprehensive",
             "start_date": dt.date(2024, 1, 6),
@@ -326,17 +329,17 @@ def test_forwards_nssp_query_args(mock_get_nssp) -> None:
     "kwargs,expected_message",
     [
         (
-            {"disease": ["rsv", "flu"], "loc_abb": "LA"},
+            {"disease": ["rsv", "flu"], "state_abb": "LA"},
             "Only one disease can be processed",
         ),
         (
-            {"disease": "rsv", "loc_abb": ["LA", "TX"]},
+            {"disease": "rsv", "state_abb": ["LA", "TX"]},
             "Only one location can be processed",
         ),
         (
             {
                 "disease": "rsv",
-                "loc_abb": "LA",
+                "state_abb": "LA",
                 "exclusion_strategy": "unknown_strategy",
             },
             "exclusion_strategy must be one of",
@@ -368,7 +371,7 @@ def test_get_nssp_with_exclusion_placeholder(
 ) -> None:
     get_nssp_with_exclusion(
         as_of=dt.date(2026, 5, 6),
-        loc_abb="LA",
+        state_abb="LA",
         disease="rsv",
         exclusion_strategy=exclusion_strategy,
         **exclusion_strategy_args,

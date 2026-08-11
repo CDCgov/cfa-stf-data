@@ -157,7 +157,7 @@ def get_nnh_delay_pmf(disease: str, as_of: dt.date | None = None) -> list[float]
 
 
 def get_nnh_right_truncation_pmf(
-    loc_abb: str,
+    state_abb: str,
     disease: str,
     as_of: dt.date | None = None,
     reference_date: dt.date | None = None,
@@ -171,7 +171,7 @@ def get_nnh_right_truncation_pmf(
 
     Parameters
     ----------
-    loc_abb
+    state_abb
         Location abbreviation (geo_value) used to filter right_truncation
         parameters.
     disease
@@ -194,7 +194,7 @@ def get_nnh_right_truncation_pmf(
     ValueError
         If exactly one right_truncation row is not found when required.
     """
-    if loc_abb == "GA":
+    if state_abb == "GA":
         if as_of is None or as_of > dt.date(2025, 10, 14):
             as_of = dt.date(2025, 10, 14)
 
@@ -202,7 +202,7 @@ def get_nnh_right_truncation_pmf(
     reference_date = reference_date or as_of or dt.date.max
 
     right_truncation_df = (
-        dat_filtered.filter(pl.col("geo_value") == loc_abb)
+        dat_filtered.filter(pl.col("geo_value") == state_abb)
         .filter(pl.col("reference_date") <= reference_date)
         .filter(pl.col("reference_date") == pl.col("reference_date").max())
     )

@@ -165,7 +165,7 @@ def test_get_nnh_pmf_normalizes_legacy_disease_input() -> None:
 
 
 @pytest.mark.parametrize(
-    ("loc_abb", "reference_date", "expected"),
+    ("state_abb", "reference_date", "expected"),
     [
         ("CA", dt.date(2024, 1, 15), [0.7, 0.3]),
         ("CA", dt.date(2024, 1, 20), [0.2, 0.8]),
@@ -173,12 +173,12 @@ def test_get_nnh_pmf_normalizes_legacy_disease_input() -> None:
     ],
 )
 def test_get_nnh_right_truncation_pmf_filters_location_and_reference_date(
-    loc_abb,
+    state_abb,
     reference_date,
     expected,
 ) -> None:
     result = get_nnh_pmfs.get_nnh_right_truncation_pmf(
-        loc_abb=loc_abb,
+        state_abb=state_abb,
         disease="covid",
         as_of=dt.date(2024, 6, 1),
         reference_date=reference_date,
@@ -189,7 +189,7 @@ def test_get_nnh_right_truncation_pmf_filters_location_and_reference_date(
 
 def test_get_nnh_right_truncation_pmf_caps_ga_as_of_date() -> None:
     result = get_nnh_pmfs.get_nnh_right_truncation_pmf(
-        loc_abb="GA",
+        state_abb="GA",
         disease="covid",
         as_of=dt.date(2025, 11, 1),
     )
@@ -207,7 +207,7 @@ def test_get_nnh_right_truncation_pmf_caps_ga_as_of_date() -> None:
         (
             get_nnh_pmfs.get_nnh_right_truncation_pmf,
             {
-                "loc_abb": "XY",
+                "state_abb": "XY",
                 "disease": "covid",
                 "as_of": dt.date(2024, 6, 1),
             },
@@ -255,17 +255,17 @@ def test_catalog_get_nnh_delay_pmf_returns_pmf(
 
 @requires_ext_catalog
 @pytest.mark.parametrize(
-    "loc_abb",
+    "state_abb",
     [
         "US",
         "CA",
     ],
 )
 def test_catalog_get_nnh_right_truncation_pmf_returns_pmf(
-    loc_abb,
+    state_abb,
 ) -> None:
     result = get_nnh_pmfs.get_nnh_right_truncation_pmf(
-        loc_abb=loc_abb,
+        state_abb=state_abb,
         disease="covid",
     )
 

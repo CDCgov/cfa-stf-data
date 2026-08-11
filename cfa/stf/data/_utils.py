@@ -3,6 +3,11 @@ from collections.abc import Iterable
 from typing import overload
 
 
+def _version_spec(as_of: dt.date | None) -> str:
+    as_of = as_of or dt.date.max
+    return f"<={as_of.strftime('%Y-%m-%dT%H-%M-%S')}"
+
+
 def _version_to_datetime(version: str | None) -> dt.datetime | str | None:
     if version is None:
         return None

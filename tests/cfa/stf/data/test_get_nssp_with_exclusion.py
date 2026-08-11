@@ -7,7 +7,7 @@ import pytest
 from cfa.stf.data import get_nssp_with_exclusion
 from tests.cfa.stf.data.data_test_utils import requires_ext_catalog
 
-nssp_exclusion = importlib.import_module("cfa.stf.data.get_nssp_with_exclusion")
+nssp_exclusion = importlib.import_module("cfa.stf.data.nssp_with_exclusion")
 
 
 def make_nssp_series(

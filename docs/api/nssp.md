@@ -6,7 +6,7 @@
 
 ## Tail exclusion
 
-::: cfa.stf.data.get_nssp_with_exclusion.get_nssp_with_exclusion
+::: cfa.stf.data.nssp_with_exclusion.get_nssp_with_exclusion
 
 ## Version resolution
 

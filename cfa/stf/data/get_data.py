@@ -24,7 +24,8 @@ def resolve_nhsn_hrd_version(
     prelim: bool = True,
     as_of: dt.date | None = None,
 ) -> dt.datetime | str | None:
-    """Resolve the catalog version that :func:`get_nhsn_hrd` would load.
+    """Resolve the catalog version that
+    [`get_nhsn_hrd`][cfa.stf.data.get_nhsn_hrd] would load.
 
     Parameters
     ----------
@@ -201,7 +202,8 @@ def resolve_nssp_version(
     dataset: NSSPDataset = "gold",
     as_of: dt.date | None = None,
 ) -> dt.datetime | str | None:
-    """Resolve the catalog version that :func:`get_nssp` would load.
+    """Resolve the catalog version that [`get_nssp`][cfa.stf.data.get_nssp]
+    would load.
 
     Parameters
     ----------

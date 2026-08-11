@@ -10,7 +10,13 @@ The project documentation is built with Zensical and is available at
 Preview it locally with:
 
 ```shell
-uv run --group docs zensical serve
+just docs-serve
+```
+
+Build the static site with:
+
+```shell
+just docs
 ```
 
 ## License Standard Notice

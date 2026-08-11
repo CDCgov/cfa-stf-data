@@ -7,10 +7,13 @@ repo_name = "CDCgov/cfa-stf-data"
 repo_url = "https://github.com/CDCgov/cfa-stf-data"
 edit_uri = "edit/main/docs/"
 copyright = "Centers for Disease Control and Prevention"
+extra_javascript = [
+  "javascripts/mathjax.js",
+  "https://unpkg.com/mathjax@3/es5/tex-mml-chtml.js",
+]
 nav = [
   { "Home" = "index.md" },
   { "Getting started" = "getting-started.md" },
-  { "Data vintages" = "data-vintages.md" },
   { "API reference" = [
     { "NHSN hospital admissions" = "api/nhsn.md" },
     { "NSSP emergency visits" = "api/nssp.md" },
@@ -26,6 +29,7 @@ features = [
   "navigation.instant",
   "navigation.instant.progress",
   "navigation.sections",
+  "navigation.tabs",
   "navigation.top",
   "navigation.tracking",
   "search.highlight",
@@ -50,6 +54,45 @@ toggle.name = "Switch to light mode"
 [project.theme.icon]
 repo = "fontawesome/brands/github"
 
+[project.markdown_extensions]
+abbr = {}
+admonition = {}
+attr_list = {}
+def_list = {}
+footnotes = {}
+md_in_html = {}
+toc = { permalink = true }
+pymdownx.arithmatex = { generic = true }
+pymdownx.betterem = {}
+pymdownx.caret = {}
+pymdownx.details = {}
+pymdownx.emoji = {
+  emoji_generator = "zensical.extensions.emoji.to_svg",
+  emoji_index = "zensical.extensions.emoji.twemoji",
+}
+pymdownx.highlight = {
+  anchor_linenums = true,
+  line_spans = "__span",
+  pygments_lang_class = true,
+}
+pymdownx.inlinehilite = {}
+pymdownx.keys = {}
+pymdownx.magiclink = {}
+pymdownx.mark = {}
+pymdownx.smartsymbols = {}
+pymdownx.superfences = {
+  custom_fences = [
+    {
+      name = "mermaid",
+      class = "mermaid",
+      format = "pymdownx.superfences.fence_code_format",
+    },
+  ],
+}
+pymdownx.tabbed = { alternate_style = true, combine_header_slug = true }
+pymdownx.tasklist = { custom_checkbox = true }
+pymdownx.tilde = {}
+
 [project.plugins.mkdocstrings.handlers.python]
 paths = ["."]
 
@@ -58,7 +101,7 @@ docstring_style = "numpy"
 show_root_heading = true
 show_root_full_path = false
 show_signature_annotations = true
+show_source = false
 separate_signature = true
 signature_crossrefs = true
 members_order = "source"
-

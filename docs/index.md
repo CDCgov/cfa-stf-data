@@ -47,6 +47,5 @@ data = nssp.collect()
 | --- | --- | --- |
 | NHSN | [`get_nhsn_hrd`][cfa.stf.data.get_nhsn_hrd] | Weekly admissions in long format |
 | NSSP | [`get_nssp`][cfa.stf.data.get_nssp] | Daily emergency department visit counts |
-| Tail exclusion | [`get_nssp_with_exclusion`][cfa.stf.data.get_nssp_with_exclusion] | NSSP data with an `exclude` indicator |
+| Tail exclusion | [`get_nssp_with_exclusion`][cfa.stf.data.get_nssp_with_exclusion.get_nssp_with_exclusion] | NSSP data with an `exclude` indicator |
 | Nowcast parameters | [`get_nnh_generation_interval_pmf`][cfa.stf.data.get_nnh_generation_interval_pmf] and related functions | Probability mass functions as `list[float]` |
-

@@ -7,4 +7,3 @@
 ## Version resolution
 
 ::: cfa.stf.data.resolve_nhsn_hrd_version
-

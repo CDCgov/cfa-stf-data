@@ -15,4 +15,3 @@
 ::: cfa.stf.data.resolve_nnh_delay_pmf_version
 
 ::: cfa.stf.data.resolve_nnh_right_truncation_pmf_version
-

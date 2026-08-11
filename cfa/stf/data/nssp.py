@@ -126,7 +126,9 @@ def get_nssp(
     -------
     pl.DataFrame | pl.LazyFrame
         Aggregated ED counts with columns:
-        `date`, `disease`, `state_abb`, and `value`.
+        `date`, `state_abb`, `disease`, `target_type`, and `value`.
+        `target_type` is always `"inc ed visits"`, and `value` is the
+        corresponding incident ED-visit count.
 
     Notes
     -----
@@ -184,6 +186,8 @@ def get_nssp(
     result = (
         combined_dat.group_by("date", "disease", "state_abb")
         .agg(pl.col("value").sum())
+        .with_columns(pl.lit("inc ed visits").alias("target_type"))
+        .select("date", "state_abb", "disease", "target_type", "value")
         .sort("state_abb", "disease", "date")
     )
 

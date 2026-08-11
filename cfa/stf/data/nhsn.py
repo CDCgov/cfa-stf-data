@@ -112,7 +112,9 @@ def get_nhsn_hrd(
     -------
     pl.DataFrame | pl.LazyFrame
         Filtered data in long format with columns:
-        `date`, `state_abb`, `disease`, and `hospital_admissions`.
+        `date`, `state_abb`, `disease`, `target_type`, and `value`.
+        `target_type` is always `"wk inc hosp"`, and `value` is the
+        corresponding weekly incident hospital-admissions count.
     """
     disease = canonicalize_diseases(disease)
     get_all_diseases = not disease
@@ -163,8 +165,10 @@ def get_nhsn_hrd(
             on=disease_valid,
             index=["date", "state_abb"],
             variable_name="disease",
-            value_name="hospital_admissions",
+            value_name="value",
         )
+        .with_columns(pl.lit("wk inc hosp").alias("target_type"))
+        .select("date", "state_abb", "disease", "target_type", "value")
         .sort("state_abb", "disease", "date")
     )
 

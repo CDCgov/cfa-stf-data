@@ -19,8 +19,9 @@ def make_nssp_series(
     return pl.DataFrame(
         {
             "date": dates,
-            "disease": [disease] * len(dates),
             "state_abb": [state_abb] * len(dates),
+            "disease": [disease] * len(dates),
+            "target_type": ["inc ed visits"] * len(dates),
             "value": values,
         }
     )
@@ -69,6 +70,7 @@ def test_tail_by_n_excludes_final_n_dates(mock_get_nssp) -> None:
         ],
         "exclude": [False, False, True, True],
     }
+    assert set(result["target_type"]) == {"inc ed visits"}
 
 
 def test_normalizes_legacy_disease_input(mock_get_nssp) -> None:

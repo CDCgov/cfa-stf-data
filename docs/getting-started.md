@@ -27,7 +27,8 @@ admissions = get_nhsn_hrd(
 )
 ```
 
-The eager result contains `date`, `state_abb`, `disease`, and `hospital_admissions`.
+The eager result contains `date`, `state_abb`, `disease`, `target_type`, and
+`value`. For NHSN data, `target_type` is `"wk inc hosp"`.
 
 ## Retrieve NSSP emergency department visits
 
@@ -48,7 +49,8 @@ visits = visits.filter(
 ```
 
 `get_nssp` returns a `polars.LazyFrame` unless `lazy=False`.
-Its columns are `date`, `disease`, `state_abb`, and `value`.
+Its columns are `date`, `state_abb`, `disease`, `target_type`, and `value`.
+For NSSP data, `target_type` is `"inc ed visits"`.
 
 !!! note "National NSSP values"
     When `state_abb="US"`, values are computed by aggregating the available geographic rows in the selected catalog dataset and vintage.

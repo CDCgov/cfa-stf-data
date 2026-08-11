@@ -96,7 +96,16 @@ def test_get_nhsn_hrd_returns_all_locations_and_diseases() -> None:
 
     assert {"covid", "flu", "rsv"} == _unique_values(result, "disease")
     assert {"US", "CA", "SD"}.issubset(_unique_values(result, "state_abb"))
-    assert result.columns == ["date", "state_abb", "disease", "hospital_admissions"]
+    assert result.columns == ["date", "state_abb", "disease", "target_type", "value"]
+    assert _unique_values(result, "target_type") == {"wk inc hosp"}
+    assert (
+        result.filter(
+            pl.col("date") == dt.date(2024, 1, 6),
+            pl.col("state_abb") == "US",
+            pl.col("disease") == "covid",
+        ).item(0, "value")
+        == 10
+    )
 
 
 def test_get_nhsn_hrd_warns_about_missing_filters() -> None:
@@ -160,7 +169,8 @@ def test_catalog_get_nhsn_hrd_returns_all_locations_and_diseases() -> None:
 
     assert {"covid", "flu", "rsv"} == _unique_values(result, "disease")
     assert {"US", "CA", "SD"}.issubset(_unique_values(result, "state_abb"))
-    assert result.columns == ["date", "state_abb", "disease", "hospital_admissions"]
+    assert result.columns == ["date", "state_abb", "disease", "target_type", "value"]
+    assert _unique_values(result, "target_type") == {"wk inc hosp"}
 
 
 @requires_ext_catalog

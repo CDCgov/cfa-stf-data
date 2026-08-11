@@ -169,7 +169,8 @@ def test_get_nssp_returns_all_locations_and_diseases() -> None:
 
     assert {"covid", "flu", "rsv", "total"} == _unique_values(result, "disease")
     assert {"US", "CA", "SD"}.issubset(_unique_values(result, "state_abb"))
-    assert result.columns == ["date", "disease", "state_abb", "value"]
+    assert result.columns == ["date", "state_abb", "disease", "target_type", "value"]
+    assert _unique_values(result, "target_type") == {"inc ed visits"}
 
 
 def test_get_nssp_warns_about_missing_filters() -> None:
@@ -267,7 +268,8 @@ def test_catalog_get_nssp_returns_all_locations_and_diseases() -> None:
 
     assert {"covid", "flu", "rsv", "total"} == _unique_values(result, "disease")
     assert {"US", "CA", "SD"}.issubset(_unique_values(result, "state_abb"))
-    assert result.columns == ["date", "disease", "state_abb", "value"]
+    assert result.columns == ["date", "state_abb", "disease", "target_type", "value"]
+    assert _unique_values(result, "target_type") == {"inc ed visits"}
 
 
 @requires_ext_catalog

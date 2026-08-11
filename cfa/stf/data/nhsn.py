@@ -176,4 +176,3 @@ def get_nhsn_hrd(
     if not lazy:
         dat = dat.collect()
     return dat
-

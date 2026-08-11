@@ -27,8 +27,8 @@ admissions = get_nhsn_hrd(
 )
 ```
 
-The eager result contains `date`, `state_abb`, `disease`, `target_type`, and
-`value`. For NHSN data, `target_type` is `"wk inc hosp"`.
+The eager result contains `date`, `state_abb`, `disease`, `target_type`, and `value`.
+For NHSN data, `target_type` is `"wk inc hosp"`.
 
 ## Retrieve NSSP emergency department visits
 

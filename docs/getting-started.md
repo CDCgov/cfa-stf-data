@@ -2,8 +2,8 @@
 
 ## Install
 
-The package requires Python 3.12 or later. Install the repository environment
-with [uv](https://docs.astral.sh/uv/):
+The package requires Python 3.12 or later.
+Install the repository environment with [uv](https://docs.astral.sh/uv/):
 
 ```shell
 uv sync
@@ -27,8 +27,7 @@ admissions = get_nhsn_hrd(
 )
 ```
 
-The eager result contains `weekendingdate`, `jurisdiction`, `disease`, and
-`hospital_admissions`.
+The eager result contains `weekendingdate`, `jurisdiction`, `disease`, and `hospital_admissions`.
 
 ## Retrieve NSSP emergency department visits
 
@@ -48,13 +47,11 @@ visits = visits.filter(
 ).collect()
 ```
 
-`get_nssp` returns a `polars.LazyFrame` unless `lazy=False`. Its columns are
-`reference_date`, `disease`, `geo_value`, and `value`.
+`get_nssp` returns a `polars.LazyFrame` unless `lazy=False`.
+Its columns are `reference_date`, `disease`, `geo_value`, and `value`.
 
 !!! note "National NSSP values"
-
-    When `loc_abb="US"`, values are computed by aggregating the available
-    geographic rows in the selected catalog dataset and vintage.
+    When `loc_abb="US"`, values are computed by aggregating the available geographic rows in the selected catalog dataset and vintage.
 
 ## Flag an incomplete tail
 
@@ -69,10 +66,9 @@ visits = get_nssp_with_exclusion(
 )
 ```
 
-This eager result adds a Boolean `exclude` column. Automatic strategies can
-instead detect a discontinuity in the recent tail using the target disease,
-the sum of the three respiratory diseases, or the NSSP total series. See the
-[NSSP API reference](api/nssp.md) for all strategy arguments.
+This eager result adds a Boolean `exclude` column.
+Automatic strategies can instead detect a discontinuity in the recent tail using the target disease, the sum of the three respiratory diseases, or the NSSP total series.
+See the [NSSP API reference](api/nssp.md) for all strategy arguments.
 
 ## Preview the documentation
 

@@ -3,7 +3,8 @@ import datetime as dt
 import polars as pl
 import pytest
 
-from cfa.stf.data import ensure_list, get_data
+import cfa.stf.data.nssp as nssp
+from cfa.stf.data import ensure_list
 from tests.cfa.stf.data.data_test_utils import (
     _unique_values,
     lazy_catalog_loader,
@@ -86,12 +87,12 @@ def mock_nssp_data(
         return
 
     monkeypatch.setattr(
-        get_data.datacat.public.stf.nssp_gold_v1.load,
+        nssp.datacat.public.stf.nssp_gold_v1.load,
         "get_dataframe",
         lazy_catalog_loader(nssp_data),
     )
     monkeypatch.setattr(
-        get_data.datacat.public.stf.comprehensive_nssp_gold.load,
+        nssp.datacat.public.stf.comprehensive_nssp_gold.load,
         "get_dataframe",
         lazy_catalog_loader(nssp_data_comprehensive),
     )
@@ -109,7 +110,7 @@ def mock_nssp_data(
 def test_get_nssp_filters_locations(loc_abb) -> None:
     expected_geo_values = set(ensure_list(loc_abb))
     result = set(
-        _unique_values(get_data.get_nssp(loc_abb=loc_abb, lazy=False), "geo_value")
+        _unique_values(nssp.get_nssp(loc_abb=loc_abb, lazy=False), "geo_value")
     )
     assert result == expected_geo_values
 
@@ -123,14 +124,12 @@ def test_get_nssp_filters_locations(loc_abb) -> None:
 )
 def test_get_nssp_filters_diseases(disease) -> None:
     expected_diseases = set(ensure_list(disease))
-    result = set(
-        _unique_values(get_data.get_nssp(disease=disease, lazy=False), "disease")
-    )
+    result = set(_unique_values(nssp.get_nssp(disease=disease, lazy=False), "disease"))
     assert result == expected_diseases
 
 
 def test_get_nssp_returns_all_locations_and_diseases() -> None:
-    result = get_data.get_nssp(lazy=False)
+    result = nssp.get_nssp(lazy=False)
 
     assert {"COVID-19", "Influenza", "RSV", "Total"} == _unique_values(
         result, "disease"
@@ -140,7 +139,7 @@ def test_get_nssp_returns_all_locations_and_diseases() -> None:
 
 def test_get_nssp_warns_about_missing_filters() -> None:
     with pytest.warns(UserWarning) as warnings:
-        result = get_data.get_nssp(
+        result = nssp.get_nssp(
             loc_abb=["CA", "US", "XY"],
             disease=["COVID-19", "Influenza", "ZZ"],
             lazy=False,
@@ -168,7 +167,7 @@ def test_get_nssp_comprehensive_filters_locations(loc_abb) -> None:
     expected_geo_values = set(ensure_list(loc_abb))
     result = set(
         _unique_values(
-            get_data.get_nssp(loc_abb=loc_abb, dataset="comprehensive", lazy=False),
+            nssp.get_nssp(loc_abb=loc_abb, dataset="comprehensive", lazy=False),
             "geo_value",
         )
     )
@@ -186,7 +185,7 @@ def test_get_nssp_comprehensive_filters_diseases(disease) -> None:
     expected_diseases = set(ensure_list(disease))
     result = set(
         _unique_values(
-            get_data.get_nssp(disease=disease, dataset="comprehensive", lazy=False),
+            nssp.get_nssp(disease=disease, dataset="comprehensive", lazy=False),
             "disease",
         )
     )
@@ -206,7 +205,7 @@ def test_get_nssp_comprehensive_filters_diseases(disease) -> None:
 def test_catalog_get_nssp_filters_locations(loc_abb) -> None:
     expected_geo_values = set(ensure_list(loc_abb))
     result = set(
-        _unique_values(get_data.get_nssp(loc_abb=loc_abb, lazy=False), "geo_value")
+        _unique_values(nssp.get_nssp(loc_abb=loc_abb, lazy=False), "geo_value")
     )
     assert result == expected_geo_values
 
@@ -221,15 +220,13 @@ def test_catalog_get_nssp_filters_locations(loc_abb) -> None:
 )
 def test_catalog_get_nssp_filters_diseases(disease) -> None:
     expected_diseases = set(ensure_list(disease))
-    result = set(
-        _unique_values(get_data.get_nssp(disease=disease, lazy=False), "disease")
-    )
+    result = set(_unique_values(nssp.get_nssp(disease=disease, lazy=False), "disease"))
     assert result == expected_diseases
 
 
 @requires_ext_catalog
 def test_catalog_get_nssp_returns_all_locations_and_diseases() -> None:
-    result = get_data.get_nssp(lazy=False)
+    result = nssp.get_nssp(lazy=False)
 
     assert {"COVID-19", "Influenza", "RSV", "Total"} == _unique_values(
         result, "disease"
@@ -240,6 +237,6 @@ def test_catalog_get_nssp_returns_all_locations_and_diseases() -> None:
 @requires_ext_catalog
 @pytest.mark.parametrize("dataset", ["gold", "comprehensive"])
 def test_catalog_resolve_nssp_version(dataset) -> None:
-    result = get_data.resolve_nssp_version(dataset=dataset)
+    result = nssp.resolve_nssp_version(dataset=dataset)
 
     assert isinstance(result, dt.datetime)

@@ -7,10 +7,9 @@ import numpy as np
 import polars as pl
 from numpy.typing import ArrayLike
 
-from cfa.stf.data import get_nnh_right_truncation_pmf, get_nssp
-from cfa.stf.data.get_data import NSSPDataset
-
 from ._utils import ensure_list
+from .get_nnh_pmfs import get_nnh_right_truncation_pmf
+from .nssp import NSSPDataset, get_nssp
 
 DEFAULT_EXCLUSION_CALC_DISEASES = ("Influenza", "RSV", "COVID-19")
 

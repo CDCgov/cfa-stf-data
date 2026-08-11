@@ -19,7 +19,7 @@ import datetime as dt
 from cfa.stf.data import get_nhsn_hrd
 
 admissions = get_nhsn_hrd(
-    disease="Influenza",
+    disease="flu",
     loc_abb=["CA", "OR", "WA"],
     start_date=dt.date(2025, 10, 1),
     end_date=dt.date(2026, 3, 31),
@@ -37,7 +37,7 @@ import polars as pl
 from cfa.stf.data import get_nssp
 
 visits = get_nssp(
-    disease=["COVID-19", "Influenza", "RSV"],
+    disease=["covid", "flu", "rsv"],
     loc_abb="US",
 )
 
@@ -59,7 +59,7 @@ Its columns are `reference_date`, `disease`, `geo_value`, and `value`.
 from cfa.stf.data import get_nssp_with_exclusion
 
 visits = get_nssp_with_exclusion(
-    disease="Influenza",
+    disease="flu",
     loc_abb="CA",
     exclusion_strategy="tail_by_n",
     n=3,

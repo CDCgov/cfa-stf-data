@@ -6,7 +6,13 @@ from typing import Literal, overload
 import polars as pl
 from cfa.dataops import datacat
 
-from ._utils import _version_spec, _version_to_datetime, ensure_list
+from ._utils import (
+    _version_spec,
+    _version_to_datetime,
+    canonical_disease_expr,
+    canonicalize_diseases,
+    ensure_list,
+)
 
 NSSPDataset = Literal["gold", "comprehensive"]
 
@@ -98,7 +104,8 @@ def get_nssp(
     Parameters
     ----------
     disease
-        The disease to filter for ("COVID-19", "Influenza", "RSV", or "Total"). If None, all diseases are included.
+        The disease to filter for ("covid", "flu", "rsv", or the aggregate
+        "total" series). If None, all diseases are included.
     loc_abb
         Location abbreviation to filter for. If None, all locations are included.
     dataset
@@ -123,13 +130,14 @@ def get_nssp(
 
     Notes
     -----
-    - The function handles special naming for COVID-19/Omicron, converting it to "COVID-19".
+    - Catalog disease labels are converted to the canonical names "covid",
+      "flu", and "rsv".
     - The function only includes data from parquet files with dates up to and including the as_of date.
     """
     loc_abb = ensure_list(loc_abb)
     get_all_locs = not loc_abb
 
-    disease = ensure_list(disease)
+    disease = canonicalize_diseases(disease)
     get_all_diseases = not disease
 
     datacat_dataset = _get_nssp_dataset(dataset)
@@ -152,9 +160,7 @@ def get_nssp(
             output="pl_lazy",
             version_spec=_version_spec(as_of),
         )
-        .with_columns(
-            pl.col("disease").cast(pl.String).replace("COVID-19/Omicron", "COVID-19")
-        )
+        .with_columns(canonical_disease_expr())
         .filter(*filters)
     )
 

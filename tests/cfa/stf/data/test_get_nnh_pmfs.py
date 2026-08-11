@@ -126,12 +126,12 @@ def mock_param_estimates(monkeypatch, param_estimates: pl.DataFrame, request) ->
 )
 def test_filter_param_estimates_filters_disease_and_valid_date(lazy) -> None:
     result = get_nnh_pmfs._filter_param_estimates(
-        disease="COVID-19",
+        disease="covid",
         as_of=dt.date(2024, 6, 1),
         lazy=lazy,
     )
 
-    assert _unique_values(result, "disease") == {"COVID-19"}
+    assert _unique_values(result, "disease") == {"covid"}
     assert _unique_values(result, "parameter") == {
         "delay",
         "generation_interval",
@@ -150,9 +150,18 @@ def test_filter_param_estimates_filters_disease_and_valid_date(lazy) -> None:
     ],
 )
 def test_get_nnh_pmfs_filter_disease_and_parameter(get_pmf, expected) -> None:
-    result = get_pmf(disease="COVID-19", as_of=dt.date(2024, 6, 1))
+    result = get_pmf(disease="covid", as_of=dt.date(2024, 6, 1))
 
     assert result == expected
+
+
+def test_get_nnh_pmf_normalizes_legacy_disease_input() -> None:
+    result = get_nnh_pmfs.get_nnh_generation_interval_pmf(
+        disease="COVID-19",
+        as_of=dt.date(2024, 6, 1),
+    )
+
+    assert result == [0.25, 0.75]
 
 
 @pytest.mark.parametrize(
@@ -170,7 +179,7 @@ def test_get_nnh_right_truncation_pmf_filters_location_and_reference_date(
 ) -> None:
     result = get_nnh_pmfs.get_nnh_right_truncation_pmf(
         loc_abb=loc_abb,
-        disease="COVID-19",
+        disease="covid",
         as_of=dt.date(2024, 6, 1),
         reference_date=reference_date,
     )
@@ -181,7 +190,7 @@ def test_get_nnh_right_truncation_pmf_filters_location_and_reference_date(
 def test_get_nnh_right_truncation_pmf_caps_ga_as_of_date() -> None:
     result = get_nnh_pmfs.get_nnh_right_truncation_pmf(
         loc_abb="GA",
-        disease="COVID-19",
+        disease="covid",
         as_of=dt.date(2025, 11, 1),
     )
 
@@ -193,13 +202,13 @@ def test_get_nnh_right_truncation_pmf_caps_ga_as_of_date() -> None:
     [
         (
             get_nnh_pmfs.get_nnh_generation_interval_pmf,
-            {"disease": "RSV", "as_of": dt.date(2024, 6, 1)},
+            {"disease": "rsv", "as_of": dt.date(2024, 6, 1)},
         ),
         (
             get_nnh_pmfs.get_nnh_right_truncation_pmf,
             {
                 "loc_abb": "XY",
-                "disease": "COVID-19",
+                "disease": "covid",
                 "as_of": dt.date(2024, 6, 1),
             },
         ),
@@ -214,9 +223,9 @@ def test_get_nnh_pmfs_error_when_exactly_one_row_is_not_found(get_pmf, kwargs) -
 @pytest.mark.parametrize(
     "disease",
     [
-        "COVID-19",
-        "Influenza",
-        "RSV",
+        "covid",
+        "flu",
+        "rsv",
     ],
 )
 def test_catalog_get_nnh_generation_interval_pmf_returns_pmf(
@@ -231,9 +240,9 @@ def test_catalog_get_nnh_generation_interval_pmf_returns_pmf(
 @pytest.mark.parametrize(
     "disease",
     [
-        "COVID-19",
-        "Influenza",
-        "RSV",
+        "covid",
+        "flu",
+        "rsv",
     ],
 )
 def test_catalog_get_nnh_delay_pmf_returns_pmf(
@@ -257,7 +266,7 @@ def test_catalog_get_nnh_right_truncation_pmf_returns_pmf(
 ) -> None:
     result = get_nnh_pmfs.get_nnh_right_truncation_pmf(
         loc_abb=loc_abb,
-        disease="COVID-19",
+        disease="covid",
     )
 
     _assert_pmf(result)

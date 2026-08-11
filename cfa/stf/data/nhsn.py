@@ -6,7 +6,13 @@ from typing import Literal, overload
 import polars as pl
 from cfa.dataops import datacat
 
-from ._utils import _version_spec, _version_to_datetime, ensure_list
+from ._utils import (
+    CANONICAL_DISEASES,
+    _version_spec,
+    _version_to_datetime,
+    canonicalize_diseases,
+    ensure_list,
+)
 
 
 def _get_nhsn_hrd_dataset(prelim: bool):
@@ -86,7 +92,8 @@ def get_nhsn_hrd(
     Parameters
     ----------
     disease
-        The disease to filter for ("COVID-19", "Influenza", or "RSV"). If None, all diseases are included.
+        The canonical disease name to filter for ("covid", "flu", or "rsv").
+        If None, all diseases are included.
     loc_abb
         The location abbreviation to filter for. If None, all locations are included.
     prelim
@@ -107,20 +114,20 @@ def get_nhsn_hrd(
         Filtered data in long format with columns:
         `weekendingdate`, `jurisdiction`, `disease`, and `hospital_admissions`.
     """
-    disease = ensure_list(disease)
+    disease = canonicalize_diseases(disease)
     get_all_diseases = not disease
 
     loc_abb = ensure_list(loc_abb)
     get_all_locs = not loc_abb
 
     nhsn_disease_map = {
-        "COVID-19": "totalconfc19newadm",
-        "Influenza": "totalconfflunewadm",
-        "RSV": "totalconfrsvnewadm",
+        "covid": "totalconfc19newadm",
+        "flu": "totalconfflunewadm",
+        "rsv": "totalconfrsvnewadm",
     }
 
     disease_valid = (
-        list(nhsn_disease_map.keys())
+        list(CANONICAL_DISEASES)
         if get_all_diseases
         else [x for x in disease if x in nhsn_disease_map.keys()]
     )

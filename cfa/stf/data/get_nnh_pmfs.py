@@ -4,7 +4,11 @@ from typing import Literal, overload
 import polars as pl
 from cfa.dataops import datacat
 
-from ._utils import _version_to_datetime
+from ._utils import (
+    _version_to_datetime,
+    canonical_disease_expr,
+    canonicalize_disease,
+)
 
 
 def _resolve_param_estimates_version() -> dt.datetime | str | None:
@@ -67,12 +71,14 @@ def _filter_param_estimates(
     as_of: dt.date | None = None,
     lazy: bool = True,
 ) -> pl.DataFrame | pl.LazyFrame:
+    disease = canonicalize_disease(disease)
     as_of = as_of or dt.date.max - dt.timedelta(days=1)
 
     output = "pl_lazy" if lazy else "pl"
     result = (
         datacat.public.stf.param_estimates.load.get_dataframe(output=output)
         .with_columns(
+            canonical_disease_expr(),
             pl.col("start_date").fill_null(dt.date.min),
             pl.col("end_date").fill_null(dt.date.max),
         )
@@ -99,7 +105,7 @@ def get_nnh_generation_interval_pmf(
     Parameters
     ----------
     disease
-        The disease name to filter for ("COVID-19", "Influenza", or "RSV").
+        The canonical disease name to filter for ("covid", "flu", or "rsv").
     as_of
         The date for which parameters should be valid. Parameters must have
         start_date <= as_of < end_date. Defaults to latest estimates.
@@ -129,7 +135,7 @@ def get_nnh_delay_pmf(disease: str, as_of: dt.date | None = None) -> list[float]
     Parameters
     ----------
     disease
-        The disease name to filter for ("COVID-19", "Influenza", or "RSV").
+        The canonical disease name to filter for ("covid", "flu", or "rsv").
     as_of
         The date for which parameters should be valid. Parameters must have
         start_date <= as_of < end_date. Defaults to latest estimates.
@@ -169,7 +175,7 @@ def get_nnh_right_truncation_pmf(
         Location abbreviation (geo_value) used to filter right_truncation
         parameters.
     disease
-        The disease name to filter for ("COVID-19", "Influenza", or "RSV").
+        The canonical disease name to filter for ("covid", "flu", or "rsv").
     as_of
         The date for which parameters should be valid. Parameters must have
         start_date <= as_of < end_date. Defaults to latest estimates.

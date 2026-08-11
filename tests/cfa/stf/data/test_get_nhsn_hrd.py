@@ -70,8 +70,8 @@ def test_get_nhsn_hrd_filters_locations(loc_abb) -> None:
 @pytest.mark.parametrize(
     "disease",
     [
-        "COVID-19",
-        ["COVID-19", "Influenza"],
+        "covid",
+        ["covid", "flu"],
     ],
 )
 def test_get_nhsn_hrd_filters_diseases(disease) -> None:
@@ -82,10 +82,19 @@ def test_get_nhsn_hrd_filters_diseases(disease) -> None:
     assert result == expected_diseases
 
 
+def test_get_nhsn_hrd_normalizes_legacy_disease_inputs() -> None:
+    result = nhsn.get_nhsn_hrd(
+        disease=["COVID-19", "Influenza", "RSV"],
+        lazy=False,
+    )
+
+    assert _unique_values(result, "disease") == {"covid", "flu", "rsv"}
+
+
 def test_get_nhsn_hrd_returns_all_locations_and_diseases() -> None:
     result = nhsn.get_nhsn_hrd(lazy=False)
 
-    assert {"COVID-19", "Influenza", "RSV"} == _unique_values(result, "disease")
+    assert {"covid", "flu", "rsv"} == _unique_values(result, "disease")
     assert {"US", "CA", "SD"}.issubset(_unique_values(result, "jurisdiction"))
 
 
@@ -93,7 +102,7 @@ def test_get_nhsn_hrd_warns_about_missing_filters() -> None:
     with pytest.warns(UserWarning) as warnings:
         result = nhsn.get_nhsn_hrd(
             loc_abb=["CA", "US", "XY"],
-            disease=["COVID-19", "Influenza", "ZZ"],
+            disease=["covid", "flu", "ZZ"],
             lazy=False,
         )
 
@@ -103,7 +112,7 @@ def test_get_nhsn_hrd_warns_about_missing_filters() -> None:
         "Requested locations {'XY'} not found" in msg for msg in warning_messages
     )
     assert _unique_values(result, "jurisdiction") == {"CA", "US"}
-    assert _unique_values(result, "disease") == {"COVID-19", "Influenza"}
+    assert _unique_values(result, "disease") == {"covid", "flu"}
 
 
 @requires_ext_catalog
@@ -130,8 +139,8 @@ def test_catalog_get_nhsn_hrd_filters_locations(
 @pytest.mark.parametrize(
     "disease",
     [
-        "COVID-19",
-        ["COVID-19", "Influenza"],
+        "covid",
+        ["covid", "flu"],
     ],
 )
 def test_catalog_get_nhsn_hrd_filters_diseases(
@@ -148,7 +157,7 @@ def test_catalog_get_nhsn_hrd_filters_diseases(
 def test_catalog_get_nhsn_hrd_returns_all_locations_and_diseases() -> None:
     result = nhsn.get_nhsn_hrd(lazy=False)
 
-    assert {"COVID-19", "Influenza", "RSV"} == _unique_values(result, "disease")
+    assert {"covid", "flu", "rsv"} == _unique_values(result, "disease")
     assert {"US", "CA", "SD"}.issubset(_unique_values(result, "jurisdiction"))
 
 

@@ -51,7 +51,7 @@ def mock_nhsn_hrd_data(monkeypatch, nhsn_hrd_data: pl.DataFrame, request) -> Non
 
 
 @pytest.mark.parametrize(
-    "loc_abb",
+    "state_abb",
     [
         "US",
         "AK",
@@ -59,19 +59,19 @@ def mock_nhsn_hrd_data(monkeypatch, nhsn_hrd_data: pl.DataFrame, request) -> Non
         ["CA", "US"],
     ],
 )
-def test_get_nhsn_hrd_filters_locations(loc_abb) -> None:
-    expected_jurisdictions = set(ensure_list(loc_abb))
+def test_get_nhsn_hrd_filters_locations(state_abb) -> None:
+    expected_state_abbs = set(ensure_list(state_abb))
     result = set(
-        _unique_values(nhsn.get_nhsn_hrd(loc_abb=loc_abb, lazy=False), "jurisdiction")
+        _unique_values(nhsn.get_nhsn_hrd(state_abb=state_abb, lazy=False), "state_abb")
     )
-    assert result == expected_jurisdictions
+    assert result == expected_state_abbs
 
 
 @pytest.mark.parametrize(
     "disease",
     [
-        "COVID-19",
-        ["COVID-19", "Influenza"],
+        "covid",
+        ["covid", "flu"],
     ],
 )
 def test_get_nhsn_hrd_filters_diseases(disease) -> None:
@@ -82,18 +82,37 @@ def test_get_nhsn_hrd_filters_diseases(disease) -> None:
     assert result == expected_diseases
 
 
+def test_get_nhsn_hrd_normalizes_legacy_disease_inputs() -> None:
+    result = nhsn.get_nhsn_hrd(
+        disease=["COVID-19", "Influenza", "RSV"],
+        lazy=False,
+    )
+
+    assert _unique_values(result, "disease") == {"covid", "flu", "rsv"}
+
+
 def test_get_nhsn_hrd_returns_all_locations_and_diseases() -> None:
     result = nhsn.get_nhsn_hrd(lazy=False)
 
-    assert {"COVID-19", "Influenza", "RSV"} == _unique_values(result, "disease")
-    assert {"US", "CA", "SD"}.issubset(_unique_values(result, "jurisdiction"))
+    assert {"covid", "flu", "rsv"} == _unique_values(result, "disease")
+    assert {"US", "CA", "SD"}.issubset(_unique_values(result, "state_abb"))
+    assert result.columns == ["date", "state_abb", "disease", "target_type", "value"]
+    assert _unique_values(result, "target_type") == {"wk inc hosp"}
+    assert (
+        result.filter(
+            pl.col("date") == dt.date(2024, 1, 6),
+            pl.col("state_abb") == "US",
+            pl.col("disease") == "covid",
+        ).item(0, "value")
+        == 10
+    )
 
 
 def test_get_nhsn_hrd_warns_about_missing_filters() -> None:
     with pytest.warns(UserWarning) as warnings:
         result = nhsn.get_nhsn_hrd(
-            loc_abb=["CA", "US", "XY"],
-            disease=["COVID-19", "Influenza", "ZZ"],
+            state_abb=["CA", "US", "XY"],
+            disease=["covid", "flu", "ZZ"],
             lazy=False,
         )
 
@@ -102,13 +121,13 @@ def test_get_nhsn_hrd_warns_about_missing_filters() -> None:
     assert any(
         "Requested locations {'XY'} not found" in msg for msg in warning_messages
     )
-    assert _unique_values(result, "jurisdiction") == {"CA", "US"}
-    assert _unique_values(result, "disease") == {"COVID-19", "Influenza"}
+    assert _unique_values(result, "state_abb") == {"CA", "US"}
+    assert _unique_values(result, "disease") == {"covid", "flu"}
 
 
 @requires_ext_catalog
 @pytest.mark.parametrize(
-    "loc_abb",
+    "state_abb",
     [
         "US",
         "AK",
@@ -117,21 +136,21 @@ def test_get_nhsn_hrd_warns_about_missing_filters() -> None:
     ],
 )
 def test_catalog_get_nhsn_hrd_filters_locations(
-    loc_abb,
+    state_abb,
 ) -> None:
-    expected_jurisdictions = set(ensure_list(loc_abb))
+    expected_state_abbs = set(ensure_list(state_abb))
     result = set(
-        _unique_values(nhsn.get_nhsn_hrd(loc_abb=loc_abb, lazy=False), "jurisdiction")
+        _unique_values(nhsn.get_nhsn_hrd(state_abb=state_abb, lazy=False), "state_abb")
     )
-    assert result == expected_jurisdictions
+    assert result == expected_state_abbs
 
 
 @requires_ext_catalog
 @pytest.mark.parametrize(
     "disease",
     [
-        "COVID-19",
-        ["COVID-19", "Influenza"],
+        "covid",
+        ["covid", "flu"],
     ],
 )
 def test_catalog_get_nhsn_hrd_filters_diseases(
@@ -148,8 +167,10 @@ def test_catalog_get_nhsn_hrd_filters_diseases(
 def test_catalog_get_nhsn_hrd_returns_all_locations_and_diseases() -> None:
     result = nhsn.get_nhsn_hrd(lazy=False)
 
-    assert {"COVID-19", "Influenza", "RSV"} == _unique_values(result, "disease")
-    assert {"US", "CA", "SD"}.issubset(_unique_values(result, "jurisdiction"))
+    assert {"covid", "flu", "rsv"} == _unique_values(result, "disease")
+    assert {"US", "CA", "SD"}.issubset(_unique_values(result, "state_abb"))
+    assert result.columns == ["date", "state_abb", "disease", "target_type", "value"]
+    assert _unique_values(result, "target_type") == {"wk inc hosp"}
 
 
 @requires_ext_catalog

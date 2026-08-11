@@ -99,7 +99,7 @@ def mock_nssp_data(
 
 
 @pytest.mark.parametrize(
-    "loc_abb",
+    "state_abb",
     [
         "US",
         "AK",
@@ -107,19 +107,20 @@ def mock_nssp_data(
         ["CA", "US"],
     ],
 )
-def test_get_nssp_filters_locations(loc_abb) -> None:
-    expected_geo_values = set(ensure_list(loc_abb))
+def test_get_nssp_filters_locations(state_abb) -> None:
+    expected_state_abbs = set(ensure_list(state_abb))
     result = set(
-        _unique_values(nssp.get_nssp(loc_abb=loc_abb, lazy=False), "geo_value")
+        _unique_values(nssp.get_nssp(state_abb=state_abb, lazy=False), "state_abb")
     )
-    assert result == expected_geo_values
+    assert result == expected_state_abbs
 
 
 @pytest.mark.parametrize(
     "disease",
     [
-        "COVID-19",
-        ["COVID-19", "Influenza"],
+        "covid",
+        "total",
+        ["covid", "flu"],
     ],
 )
 def test_get_nssp_filters_diseases(disease) -> None:
@@ -128,20 +129,55 @@ def test_get_nssp_filters_diseases(disease) -> None:
     assert result == expected_diseases
 
 
+@pytest.mark.parametrize(
+    ("disease", "expected"),
+    [
+        ("COVID-19", "covid"),
+        ("COVID-19/Omicron", "covid"),
+        ("Influenza", "flu"),
+        ("RSV", "rsv"),
+        ("Total", "total"),
+    ],
+)
+def test_get_nssp_normalizes_legacy_disease_input(disease, expected) -> None:
+    result = nssp.get_nssp(disease=disease, lazy=False)
+
+    assert _unique_values(result, "disease") == {expected}
+
+
+def test_get_nssp_rejects_unknown_catalog_disease(
+    monkeypatch, nssp_data: pl.DataFrame
+) -> None:
+    unknown_disease_data = nssp_data.with_columns(
+        pl.when(pl.int_range(pl.len()) == 0)
+        .then(pl.lit("unknown"))
+        .otherwise(pl.col("disease"))
+        .alias("disease")
+    )
+    monkeypatch.setattr(
+        nssp.datacat.public.stf.nssp_gold_v1.load,
+        "get_dataframe",
+        lazy_catalog_loader(unknown_disease_data),
+    )
+
+    with pytest.raises(pl.exceptions.InvalidOperationError):
+        nssp.get_nssp(lazy=False)
+
+
 def test_get_nssp_returns_all_locations_and_diseases() -> None:
     result = nssp.get_nssp(lazy=False)
 
-    assert {"COVID-19", "Influenza", "RSV", "Total"} == _unique_values(
-        result, "disease"
-    )
-    assert {"US", "CA", "SD"}.issubset(_unique_values(result, "geo_value"))
+    assert {"covid", "flu", "rsv", "total"} == _unique_values(result, "disease")
+    assert {"US", "CA", "SD"}.issubset(_unique_values(result, "state_abb"))
+    assert result.columns == ["date", "state_abb", "disease", "target_type", "value"]
+    assert _unique_values(result, "target_type") == {"inc ed visits"}
 
 
 def test_get_nssp_warns_about_missing_filters() -> None:
     with pytest.warns(UserWarning) as warnings:
         result = nssp.get_nssp(
-            loc_abb=["CA", "US", "XY"],
-            disease=["COVID-19", "Influenza", "ZZ"],
+            state_abb=["CA", "US", "XY"],
+            disease=["covid", "flu", "ZZ"],
             lazy=False,
         )
 
@@ -150,12 +186,12 @@ def test_get_nssp_warns_about_missing_filters() -> None:
     assert any(
         "Requested locations {'XY'} not found" in msg for msg in warning_messages
     )
-    assert _unique_values(result, "geo_value") == {"CA", "US"}
-    assert _unique_values(result, "disease") == {"COVID-19", "Influenza"}
+    assert _unique_values(result, "state_abb") == {"CA", "US"}
+    assert _unique_values(result, "disease") == {"covid", "flu"}
 
 
 @pytest.mark.parametrize(
-    "loc_abb",
+    "state_abb",
     [
         "US",
         "AK",
@@ -163,22 +199,23 @@ def test_get_nssp_warns_about_missing_filters() -> None:
         ["CA", "US"],
     ],
 )
-def test_get_nssp_comprehensive_filters_locations(loc_abb) -> None:
-    expected_geo_values = set(ensure_list(loc_abb))
+def test_get_nssp_comprehensive_filters_locations(state_abb) -> None:
+    expected_state_abbs = set(ensure_list(state_abb))
     result = set(
         _unique_values(
-            nssp.get_nssp(loc_abb=loc_abb, dataset="comprehensive", lazy=False),
-            "geo_value",
+            nssp.get_nssp(state_abb=state_abb, dataset="comprehensive", lazy=False),
+            "state_abb",
         )
     )
-    assert result == expected_geo_values
+    assert result == expected_state_abbs
 
 
 @pytest.mark.parametrize(
     "disease",
     [
-        "COVID-19",
-        ["COVID-19", "Influenza"],
+        "covid",
+        "total",
+        ["covid", "flu"],
     ],
 )
 def test_get_nssp_comprehensive_filters_diseases(disease) -> None:
@@ -194,7 +231,7 @@ def test_get_nssp_comprehensive_filters_diseases(disease) -> None:
 
 @requires_ext_catalog
 @pytest.mark.parametrize(
-    "loc_abb",
+    "state_abb",
     [
         "US",
         "AK",
@@ -202,20 +239,21 @@ def test_get_nssp_comprehensive_filters_diseases(disease) -> None:
         ["CA", "US"],
     ],
 )
-def test_catalog_get_nssp_filters_locations(loc_abb) -> None:
-    expected_geo_values = set(ensure_list(loc_abb))
+def test_catalog_get_nssp_filters_locations(state_abb) -> None:
+    expected_state_abbs = set(ensure_list(state_abb))
     result = set(
-        _unique_values(nssp.get_nssp(loc_abb=loc_abb, lazy=False), "geo_value")
+        _unique_values(nssp.get_nssp(state_abb=state_abb, lazy=False), "state_abb")
     )
-    assert result == expected_geo_values
+    assert result == expected_state_abbs
 
 
 @requires_ext_catalog
 @pytest.mark.parametrize(
     "disease",
     [
-        "COVID-19",
-        ["COVID-19", "Influenza"],
+        "covid",
+        "total",
+        ["covid", "flu"],
     ],
 )
 def test_catalog_get_nssp_filters_diseases(disease) -> None:
@@ -228,10 +266,10 @@ def test_catalog_get_nssp_filters_diseases(disease) -> None:
 def test_catalog_get_nssp_returns_all_locations_and_diseases() -> None:
     result = nssp.get_nssp(lazy=False)
 
-    assert {"COVID-19", "Influenza", "RSV", "Total"} == _unique_values(
-        result, "disease"
-    )
-    assert {"US", "CA", "SD"}.issubset(_unique_values(result, "geo_value"))
+    assert {"covid", "flu", "rsv", "total"} == _unique_values(result, "disease")
+    assert {"US", "CA", "SD"}.issubset(_unique_values(result, "state_abb"))
+    assert result.columns == ["date", "state_abb", "disease", "target_type", "value"]
+    assert _unique_values(result, "target_type") == {"inc ed visits"}
 
 
 @requires_ext_catalog

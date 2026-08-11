@@ -6,7 +6,13 @@ from typing import Literal, overload
 import polars as pl
 from cfa.dataops import datacat
 
-from ._utils import _version_spec, _version_to_datetime, ensure_list
+from ._utils import (
+    _version_spec,
+    _version_to_datetime,
+    canonical_disease_expr,
+    canonicalize_diseases,
+    ensure_list,
+)
 
 NSSPDataset = Literal["gold", "comprehensive"]
 
@@ -56,7 +62,7 @@ def resolve_nssp_version(
 @overload
 def get_nssp(
     disease: str | Iterable[str] | None = None,
-    loc_abb: str | Iterable[str] | None = None,
+    state_abb: str | Iterable[str] | None = None,
     dataset: NSSPDataset = "gold",
     as_of: dt.date | None = None,
     start_date: dt.date | None = None,
@@ -68,7 +74,7 @@ def get_nssp(
 @overload
 def get_nssp(
     disease: str | Iterable[str] | None = None,
-    loc_abb: str | Iterable[str] | None = None,
+    state_abb: str | Iterable[str] | None = None,
     dataset: NSSPDataset = "gold",
     as_of: dt.date | None = None,
     start_date: dt.date | None = None,
@@ -79,7 +85,7 @@ def get_nssp(
 
 def get_nssp(
     disease: str | Iterable[str] | None = None,
-    loc_abb: str | Iterable[str] | None = None,
+    state_abb: str | Iterable[str] | None = None,
     dataset: NSSPDataset = "gold",
     as_of: dt.date | None = None,
     start_date: dt.date | None = None,
@@ -98,8 +104,9 @@ def get_nssp(
     Parameters
     ----------
     disease
-        The disease to filter for ("COVID-19", "Influenza", "RSV", or "Total"). If None, all diseases are included.
-    loc_abb
+        The disease to filter for ("covid", "flu", "rsv", or the aggregate
+        "total" series). If None, all diseases are included.
+    state_abb
         Location abbreviation to filter for. If None, all locations are included.
     dataset
         One of the two datasets to retrieve from datacat: "gold" or
@@ -119,22 +126,25 @@ def get_nssp(
     -------
     pl.DataFrame | pl.LazyFrame
         Aggregated ED counts with columns:
-        `reference_date`, `disease`, `geo_value`, and `value`.
+        `date`, `state_abb`, `disease`, `target_type`, and `value`.
+        `target_type` is always `"inc ed visits"`, and `value` is the
+        corresponding incident ED-visit count.
 
     Notes
     -----
-    - The function handles special naming for COVID-19/Omicron, converting it to "COVID-19".
+    - Catalog disease labels are converted to the canonical names "covid",
+      "flu", and "rsv".
     - The function only includes data from parquet files with dates up to and including the as_of date.
     """
-    loc_abb = ensure_list(loc_abb)
-    get_all_locs = not loc_abb
+    state_abb = ensure_list(state_abb)
+    get_all_locs = not state_abb
 
-    disease = ensure_list(disease)
+    disease = canonicalize_diseases(disease)
     get_all_diseases = not disease
 
     datacat_dataset = _get_nssp_dataset(dataset)
 
-    national_required = get_all_locs or "US" in loc_abb
+    national_required = get_all_locs or "US" in state_abb
 
     filters = [
         pl.col("metric") == "count_ed_visits",
@@ -143,31 +153,30 @@ def get_nssp(
     if not get_all_diseases:
         filters.append(pl.col("disease").is_in(disease))
     if start_date:
-        filters.append(pl.col("reference_date") >= start_date)
+        filters.append(pl.col("date") >= start_date)
     if end_date:
-        filters.append(pl.col("reference_date") <= end_date)
+        filters.append(pl.col("date") <= end_date)
 
     dat = (
         datacat_dataset.load.get_dataframe(
             output="pl_lazy",
             version_spec=_version_spec(as_of),
         )
-        .with_columns(
-            pl.col("disease").cast(pl.String).replace("COVID-19/Omicron", "COVID-19")
-        )
+        .rename({"reference_date": "date", "geo_value": "state_abb"})
+        .with_columns(canonical_disease_expr())
         .filter(*filters)
     )
 
-    state_locs = [loc for loc in loc_abb if loc != "US"]
+    state_locs = [loc for loc in state_abb if loc != "US"]
     state_dat = (
-        dat if get_all_locs else dat.filter(pl.col("geo_value").is_in(state_locs))
+        dat if get_all_locs else dat.filter(pl.col("state_abb").is_in(state_locs))
     )
 
     combined_dat = (
         pl.concat(
             [
-                state_dat.with_columns(pl.col("geo_value").cast(pl.String)),
-                dat.with_columns(pl.lit("US").alias("geo_value")),
+                state_dat.with_columns(pl.col("state_abb").cast(pl.String)),
+                dat.with_columns(pl.lit("US").alias("state_abb")),
             ]
         )
         if national_required
@@ -175,9 +184,11 @@ def get_nssp(
     )
 
     result = (
-        combined_dat.group_by("reference_date", "disease", "geo_value")
+        combined_dat.group_by("date", "disease", "state_abb")
         .agg(pl.col("value").sum())
-        .sort("geo_value", "disease", "reference_date")
+        .with_columns(pl.lit("inc ed visits").alias("target_type"))
+        .select("date", "state_abb", "disease", "target_type", "value")
+        .sort("state_abb", "disease", "date")
     )
 
     if not get_all_diseases:
@@ -191,9 +202,9 @@ def get_nssp(
 
     if not get_all_locs:
         result_loc_abbr = (
-            result.unique("geo_value").collect().get_column("geo_value").to_list()
+            result.unique("state_abb").collect().get_column("state_abb").to_list()
         )
-        if missing_locs := set(loc_abb) - set(result_loc_abbr):
+        if missing_locs := set(state_abb) - set(result_loc_abbr):
             warnings.warn(f"Requested locations {missing_locs} not found in results.")
 
     if not lazy:

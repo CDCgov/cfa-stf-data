@@ -32,6 +32,10 @@ dev = [
   "jupyter>=1.0.0",
   "pre-commit>=4.6.0",
 ]
+docs = [
+  "mkdocstrings-python>=2.0.5",
+  "zensical>=0.0.53",
+]
 test = [
   "cfa-cloudops",
   "pytest>=8.3.2",

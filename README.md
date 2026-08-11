@@ -2,6 +2,17 @@
 
 Data access helpers for CFA Short-Term Forecasting Team
 
+## Documentation
+
+The project documentation is built with Zensical and is available at
+[cdcgov.github.io/cfa-stf-data](https://cdcgov.github.io/cfa-stf-data/).
+
+Preview it locally with:
+
+```shell
+uv run --group docs zensical serve
+```
+
 ## License Standard Notice
 The repository utilizes code licensed under the terms of the Apache Software
 License and therefore is licensed under ASL v2 or later.

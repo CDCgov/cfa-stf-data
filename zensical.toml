@@ -1,0 +1,64 @@
+[project]
+site_name = "CFA STF Data"
+site_url = "https://cdcgov.github.io/cfa-stf-data/"
+site_description = "Data access helpers for CFA short-term forecasting."
+site_author = "CFA STF Team"
+repo_name = "CDCgov/cfa-stf-data"
+repo_url = "https://github.com/CDCgov/cfa-stf-data"
+edit_uri = "edit/main/docs/"
+copyright = "Centers for Disease Control and Prevention"
+nav = [
+  { "Home" = "index.md" },
+  { "Getting started" = "getting-started.md" },
+  { "Data vintages" = "data-vintages.md" },
+  { "API reference" = [
+    { "NHSN hospital admissions" = "api/nhsn.md" },
+    { "NSSP emergency visits" = "api/nssp.md" },
+    { "Nowcast parameters" = "api/nowcast-parameters.md" },
+  ] },
+]
+
+[project.theme]
+language = "en"
+features = [
+  "content.action.edit",
+  "content.code.copy",
+  "navigation.instant",
+  "navigation.instant.progress",
+  "navigation.sections",
+  "navigation.top",
+  "navigation.tracking",
+  "search.highlight",
+  "search.suggest",
+  "toc.follow",
+]
+
+[[project.theme.palette]]
+scheme = "default"
+primary = "blue"
+accent = "cyan"
+toggle.icon = "lucide/sun"
+toggle.name = "Switch to dark mode"
+
+[[project.theme.palette]]
+scheme = "slate"
+primary = "blue"
+accent = "cyan"
+toggle.icon = "lucide/moon"
+toggle.name = "Switch to light mode"
+
+[project.theme.icon]
+repo = "fontawesome/brands/github"
+
+[project.plugins.mkdocstrings.handlers.python]
+paths = ["."]
+
+[project.plugins.mkdocstrings.handlers.python.options]
+docstring_style = "numpy"
+show_root_heading = true
+show_root_full_path = false
+show_signature_annotations = true
+separate_signature = true
+signature_crossrefs = true
+members_order = "source"
+

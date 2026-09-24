@@ -12,12 +12,12 @@ repos:
       - id: mixed-line-ending
       - id: trailing-whitespace
   - repo: https://github.com/astral-sh/ruff-pre-commit
-    rev: v0.16.7
+    rev: v0.16.8
     hooks:
       - id: ruff-check
       - id: ruff-format
   - repo: https://github.com/astral-sh/uv-pre-commit
-    rev: 0.12.13
+    rev: 0.12.17
     hooks:
       - id: uv-lock
   - repo: https://github.com/Yelp/detect-secrets
@@ -26,12 +26,12 @@ repos:
       - id: detect-secrets
         args: ["--baseline", ".secrets.baseline"]
   - repo: https://github.com/adhtruong/mirrors-typos
-    rev: v1.50.1
+    rev: v1.50.2
     hooks:
       - id: typos
         args: ["--force-exclude"]
   - repo: https://github.com/jolars/panache-pre-commit
-    rev: v3.10.0
+    rev: v3.11.0
     hooks:
       - id: panache-format
       - id: panache-lint

@@ -1,14 +1,18 @@
 import datetime as dt
+import importlib
+from types import SimpleNamespace
 
 import polars as pl
 import pytest
 
-from cfa.stf.data import get_nnh_pmfs
+from cfa.stf.data import get_nnh_pmfs as get_all_pmfs
 from tests.cfa.stf.data.data_test_utils import (
     _unique_values,
     requires_ext_catalog,
     uses_catalog,
 )
+
+get_nnh_pmfs = importlib.import_module("cfa.stf.data.get_nnh_pmfs")
 
 
 def _assert_pmf(result: list[float]) -> None:
@@ -99,11 +103,14 @@ def param_estimates() -> pl.DataFrame:
 
 
 @pytest.fixture(autouse=True)
-def mock_param_estimates(monkeypatch, param_estimates: pl.DataFrame, request) -> None:
+def mock_param_estimates(monkeypatch, param_estimates: pl.DataFrame, request):
     if uses_catalog(request):
         return
 
-    def get_dataframe(output: str):
+    calls = []
+
+    def get_dataframe(output: str, version_spec: str | None = None):
+        calls.append({"output": output, "version_spec": version_spec})
         if output == "pl_lazy":
             return param_estimates.lazy()
         if output == "pl":
@@ -115,6 +122,7 @@ def mock_param_estimates(monkeypatch, param_estimates: pl.DataFrame, request) ->
         "get_dataframe",
         get_dataframe,
     )
+    return calls
 
 
 @pytest.mark.parametrize(
@@ -153,6 +161,38 @@ def test_get_nnh_pmfs_filter_disease_and_parameter(get_pmf, expected) -> None:
     result = get_pmf(disease="covid", as_of=dt.date(2024, 6, 1))
 
     assert result == expected
+
+
+def test_get_all_pmfs_reads_one_exact_catalog_snapshot(mock_param_estimates) -> None:
+    result = get_all_pmfs(
+        disease="covid",
+        state_abb="CA",
+        as_of=dt.date(2024, 6, 1),
+        catalog_version="opaque-parameter-version",
+    )
+
+    assert result == {
+        "generation_interval_pmf": [0.25, 0.75],
+        "hospital_delay_pmf": [0.1, 0.3, 0.6],
+        "ed_delay_pmf": [0.1, 0.3, 0.6],
+        "ed_right_truncation_pmf": [0.2, 0.8],
+    }
+    assert mock_param_estimates == [
+        {"output": "pl", "version_spec": "==opaque-parameter-version"}
+    ]
+
+
+def test_parameter_version_resolver_preserves_opaque_string(monkeypatch) -> None:
+    monkeypatch.setattr(
+        get_nnh_pmfs.datacat.public.stf.param_estimates.load,
+        "resolve_version",
+        lambda: SimpleNamespace(version="2026-09-opaque.1"),
+    )
+
+    assert (
+        get_nnh_pmfs.resolve_nnh_parameter_estimates_version()
+        == "2026-09-opaque.1"
+    )
 
 
 def test_get_nnh_pmf_normalizes_legacy_disease_input() -> None:
@@ -284,4 +324,4 @@ def test_catalog_get_nnh_right_truncation_pmf_returns_pmf(
 def test_catalog_resolve_nnh_pmf_version(resolver) -> None:
     result = resolver()
 
-    assert isinstance(result, dt.datetime)
+    assert isinstance(result, str)

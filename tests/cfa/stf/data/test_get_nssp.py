@@ -190,6 +190,31 @@ def test_get_nssp_warns_about_missing_filters() -> None:
     assert _unique_values(result, "disease") == {"covid", "flu"}
 
 
+def test_get_nssp_reads_exact_catalog_version(
+    monkeypatch, nssp_data: pl.DataFrame
+) -> None:
+    reads = []
+
+    def get_dataframe(output: str, version_spec: str):
+        reads.append(version_spec)
+        return nssp_data.lazy()
+
+    monkeypatch.setattr(
+        nssp.datacat.public.stf.nssp_gold_v1.load,
+        "get_dataframe",
+        get_dataframe,
+    )
+
+    nssp.get_nssp(
+        disease="covid",
+        state_abb="CA",
+        catalog_version="opaque-nssp-version",
+        lazy=False,
+    )
+
+    assert reads == ["==opaque-nssp-version"]
+
+
 @pytest.mark.parametrize(
     "state_abb",
     [
@@ -277,4 +302,4 @@ def test_catalog_get_nssp_returns_all_locations_and_diseases() -> None:
 def test_catalog_resolve_nssp_version(dataset) -> None:
     result = nssp.resolve_nssp_version(dataset=dataset)
 
-    assert isinstance(result, dt.datetime)
+    assert isinstance(result, str)

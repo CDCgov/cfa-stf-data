@@ -43,19 +43,26 @@ def _version_spec(as_of: dt.date | None) -> str:
     return f"<={as_of.strftime('%Y-%m-%dT%H-%M-%S')}"
 
 
-def _version_to_datetime(version: str | None) -> dt.datetime | str | None:
-    if version is None:
+def catalog_version_spec(
+    *, as_of: dt.date | None = None, catalog_version: str | None = None
+) -> str:
+    """Return a catalog constraint for either an as-of date or exact version."""
+    if as_of is not None and catalog_version is not None:
+        raise ValueError("as_of and catalog_version cannot both select a catalog version")
+    if catalog_version is not None:
+        if not catalog_version:
+            raise ValueError("catalog_version must be a non-empty string")
+        return f"=={catalog_version}"
+    return _version_spec(as_of)
+
+
+def exact_catalog_version_spec(catalog_version: str | None) -> str | None:
+    """Return an exact catalog constraint without interpreting effective dates."""
+    if catalog_version is None:
         return None
-
-    try:
-        return dt.datetime.fromisoformat(version)
-    except ValueError:
-        pass
-
-    try:
-        return dt.datetime.strptime(version, "%Y-%m-%dT%H-%M-%S")
-    except ValueError:
-        return version
+    if not catalog_version:
+        raise ValueError("catalog_version must be a non-empty string")
+    return f"=={catalog_version}"
 
 
 @overload

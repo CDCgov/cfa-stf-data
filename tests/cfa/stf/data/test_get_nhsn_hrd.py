@@ -1,4 +1,5 @@
 import datetime as dt
+from types import SimpleNamespace
 
 import polars as pl
 import pytest
@@ -125,6 +126,49 @@ def test_get_nhsn_hrd_warns_about_missing_filters() -> None:
     assert _unique_values(result, "disease") == {"covid", "flu"}
 
 
+def test_resolved_nhsn_version_remains_exact_after_newer_version(
+    monkeypatch, nhsn_hrd_data: pl.DataFrame
+) -> None:
+    loader = nhsn.datacat.public.stf.nhsn_hrd_prelim.load
+    latest = {"version": "opaque-old"}
+    newer = nhsn_hrd_data.with_columns(
+        pl.lit(999).alias("totalconfc19newadm")
+    )
+    reads = []
+
+    def resolve_version(version_spec: str):
+        assert version_spec.startswith("<=")
+        return SimpleNamespace(version=latest["version"])
+
+    def get_dataframe(output: str, version_spec: str):
+        reads.append(version_spec)
+        selected = nhsn_hrd_data if version_spec == "==opaque-old" else newer
+        return selected.lazy()
+
+    monkeypatch.setattr(loader, "resolve_version", resolve_version)
+    monkeypatch.setattr(loader, "get_dataframe", get_dataframe)
+    resolved = nhsn.resolve_nhsn_hrd_version(as_of=dt.date(2024, 1, 15))
+    latest["version"] = "opaque-new"
+
+    result = nhsn.get_nhsn_hrd(
+        disease="covid",
+        state_abb="US",
+        catalog_version=resolved,
+        lazy=False,
+    )
+
+    assert reads == ["==opaque-old"]
+    assert result.item(0, "value") == 10
+
+
+def test_get_nhsn_hrd_rejects_two_catalog_selectors() -> None:
+    with pytest.raises(ValueError, match="cannot both select"):
+        nhsn.get_nhsn_hrd(
+            as_of=dt.date(2024, 1, 15),
+            catalog_version="opaque-old",
+        )
+
+
 @requires_ext_catalog
 @pytest.mark.parametrize(
     "state_abb",
@@ -178,4 +222,4 @@ def test_catalog_get_nhsn_hrd_returns_all_locations_and_diseases() -> None:
 def test_catalog_resolve_nhsn_hrd_version(prelim) -> None:
     result = nhsn.resolve_nhsn_hrd_version(prelim=prelim)
 
-    assert isinstance(result, dt.datetime)
+    assert isinstance(result, str)

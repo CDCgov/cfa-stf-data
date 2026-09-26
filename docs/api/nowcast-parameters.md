@@ -2,6 +2,8 @@
 
 ## Probability mass functions
 
+::: cfa.stf.data.get_nnh_pmfs
+
 ::: cfa.stf.data.get_nnh_generation_interval_pmf
 
 ::: cfa.stf.data.get_nnh_delay_pmf
@@ -9,6 +11,8 @@
 ::: cfa.stf.data.get_nnh_right_truncation_pmf
 
 ## Version resolution
+
+::: cfa.stf.data.resolve_nnh_parameter_estimates_version
 
 ::: cfa.stf.data.resolve_nnh_generation_interval_pmf_version
 

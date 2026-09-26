@@ -7,10 +7,9 @@ import polars as pl
 from cfa.dataops import datacat
 
 from ._utils import (
-    _version_spec,
-    _version_to_datetime,
     canonical_disease_expr,
     canonicalize_diseases,
+    catalog_version_spec,
     ensure_list,
 )
 
@@ -33,7 +32,7 @@ def _get_nssp_dataset(dataset: NSSPDataset):
 def resolve_nssp_version(
     dataset: NSSPDataset = "gold",
     as_of: dt.date | None = None,
-) -> dt.datetime | str | None:
+) -> str | None:
     """Resolve the catalog version that [`get_nssp`][cfa.stf.data.get_nssp]
     would load.
 
@@ -47,16 +46,15 @@ def resolve_nssp_version(
 
     Returns
     -------
-    datetime.datetime | str | None
-        The selected catalog version converted to a datetime when possible,
-        or None if no version matches.
+    str | None
+        The catalog's exact opaque version string, or None if no version matches.
     """
     version = (
         _get_nssp_dataset(dataset)
-        .load.resolve_version(version_spec=_version_spec(as_of))
+        .load.resolve_version(version_spec=catalog_version_spec(as_of=as_of))
         .version
     )
-    return _version_to_datetime(version)
+    return version
 
 
 @overload
@@ -68,6 +66,7 @@ def get_nssp(
     start_date: dt.date | None = None,
     end_date: dt.date | None = None,
     lazy: Literal[True] = ...,
+    catalog_version: str | None = None,
 ) -> pl.LazyFrame: ...
 
 
@@ -80,6 +79,7 @@ def get_nssp(
     start_date: dt.date | None = None,
     end_date: dt.date | None = None,
     lazy: Literal[False] = ...,
+    catalog_version: str | None = None,
 ) -> pl.DataFrame: ...
 
 
@@ -91,6 +91,7 @@ def get_nssp(
     start_date: dt.date | None = None,
     end_date: dt.date | None = None,
     lazy: bool = True,
+    catalog_version: str | None = None,
 ) -> pl.DataFrame | pl.LazyFrame:
     """
     Retrieve and filter NSSP emergency department data.
@@ -121,6 +122,8 @@ def get_nssp(
     lazy
         Whether to return a lazy frame (defaults to True). If True, returns a
         `pl.LazyFrame`; if False, returns a `pl.DataFrame`.
+    catalog_version
+        Exact opaque catalog version to read. Cannot be combined with ``as_of``.
 
     Returns
     -------
@@ -143,6 +146,10 @@ def get_nssp(
     get_all_diseases = not disease
 
     datacat_dataset = _get_nssp_dataset(dataset)
+    version_spec = catalog_version_spec(
+        as_of=as_of,
+        catalog_version=catalog_version,
+    )
 
     national_required = get_all_locs or "US" in state_abb
 
@@ -160,7 +167,7 @@ def get_nssp(
     dat = (
         datacat_dataset.load.get_dataframe(
             output="pl_lazy",
-            version_spec=_version_spec(as_of),
+            version_spec=version_spec,
         )
         .rename({"reference_date": "date", "geo_value": "state_abb"})
         .with_columns(canonical_disease_expr())

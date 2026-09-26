@@ -8,9 +8,8 @@ from cfa.dataops import datacat
 
 from ._utils import (
     CANONICAL_DISEASES,
-    _version_spec,
-    _version_to_datetime,
     canonicalize_diseases,
+    catalog_version_spec,
     ensure_list,
 )
 
@@ -22,7 +21,7 @@ def _get_nhsn_hrd_dataset(prelim: bool):
 def resolve_nhsn_hrd_version(
     prelim: bool = True,
     as_of: dt.date | None = None,
-) -> dt.datetime | str | None:
+) -> str | None:
     """Resolve the catalog version that
     [`get_nhsn_hrd`][cfa.stf.data.get_nhsn_hrd] would load.
 
@@ -37,16 +36,15 @@ def resolve_nhsn_hrd_version(
 
     Returns
     -------
-    datetime.datetime | str | None
-        The selected catalog version converted to a datetime when possible,
-        or None if no version matches.
+    str | None
+        The catalog's exact opaque version string, or None if no version matches.
     """
     version = (
         _get_nhsn_hrd_dataset(prelim)
-        .load.resolve_version(version_spec=_version_spec(as_of))
+        .load.resolve_version(version_spec=catalog_version_spec(as_of=as_of))
         .version
     )
-    return _version_to_datetime(version)
+    return version
 
 
 @overload
@@ -58,6 +56,7 @@ def get_nhsn_hrd(
     start_date: dt.date | None = ...,
     end_date: dt.date | None = ...,
     lazy: Literal[True] = ...,
+    catalog_version: str | None = ...,
 ) -> pl.LazyFrame: ...
 
 
@@ -70,6 +69,7 @@ def get_nhsn_hrd(
     start_date: dt.date | None = ...,
     end_date: dt.date | None = ...,
     lazy: Literal[False] = ...,
+    catalog_version: str | None = ...,
 ) -> pl.DataFrame: ...
 
 
@@ -81,6 +81,7 @@ def get_nhsn_hrd(
     start_date: dt.date | None = None,
     end_date: dt.date | None = None,
     lazy: bool = True,
+    catalog_version: str | None = None,
 ) -> pl.DataFrame | pl.LazyFrame:
     """
     Retrieve and filter NHSN hospital respiratory data based on specified criteria.
@@ -107,6 +108,8 @@ def get_nhsn_hrd(
     lazy
         Whether to return a lazy frame (defaults to True). If True, returns a
         `pl.LazyFrame`; if False, returns a `pl.DataFrame`.
+    catalog_version
+        Exact opaque catalog version to read. Cannot be combined with ``as_of``.
 
     Returns
     -------
@@ -147,10 +150,14 @@ def get_nhsn_hrd(
         filters.append(pl.col("date") <= end_date)
 
     datacat_dataset = _get_nhsn_hrd_dataset(prelim)
+    version_spec = catalog_version_spec(
+        as_of=as_of,
+        catalog_version=catalog_version,
+    )
 
     dat = (
         datacat_dataset.load.get_dataframe(
-            output="pl_lazy", version_spec=_version_spec(as_of)
+            output="pl_lazy", version_spec=version_spec
         )
         .select(raw_disease_col + ["weekendingdate", "jurisdiction"])
         .rename({"weekendingdate": "date", "jurisdiction": "state_abb"})

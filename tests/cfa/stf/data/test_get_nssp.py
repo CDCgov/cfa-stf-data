@@ -1,10 +1,12 @@
 import datetime as dt
+from types import SimpleNamespace
 
 import polars as pl
 import pytest
+from polars.testing import assert_frame_equal
 
 import cfa.stf.data.nssp as nssp
-from cfa.stf.data import ensure_list
+from cfa.stf.data import ensure_list, resolve_nssp_exclusion_version
 from tests.cfa.stf.data.data_test_utils import (
     _unique_values,
     lazy_catalog_loader,
@@ -278,3 +280,301 @@ def test_catalog_resolve_nssp_version(dataset) -> None:
     result = nssp.resolve_nssp_version(dataset=dataset)
 
     assert isinstance(result, dt.datetime)
+
+
+REVIEW_DATE = dt.date(2024, 1, 14)
+REVIEW_LOCATIONS = (
+    "AL AK AZ AR CA CO CT DE DC FL GA HI ID IL IN IA KS KY LA ME MD MA MI MN "
+    "MS MO MT NE NV NH NJ NM NY NC ND OH OK OR PA RI SC SD TN TX UT VT VA "
+    "WA WV WI WY US"
+).split()
+
+
+@pytest.fixture
+def reviewed_exclusions() -> pl.DataFrame:
+    return pl.DataFrame(
+        {
+            "reference_date": [REVIEW_DATE] * len(REVIEW_LOCATIONS),
+            "state_abb": REVIEW_LOCATIONS,
+            "excluded_dates": [
+                [dt.date(2024, 1, 13)] if loc == "CA" else []
+                for loc in REVIEW_LOCATIONS
+            ],
+        },
+        schema={
+            "reference_date": pl.Date,
+            "state_abb": pl.String,
+            "excluded_dates": pl.List(pl.Date),
+        },
+    )
+
+
+@pytest.fixture
+def exclusion_catalog(monkeypatch, reviewed_exclusions):
+    """Record catalog requests without using Azure credentials."""
+    state = SimpleNamespace(
+        frame=reviewed_exclusions,
+        versions=["2024-01-14T12-00-00", "2024-01-15T12-00-00"],
+        loads=[],
+        listings=[],
+    )
+
+    def get_versions():
+        state.listings.append(True)
+        return state.versions
+
+    def read_parquet(source, *, storage_options, credential_provider, glob):
+        prefix = f"az://{endpoint.container}/{endpoint.prefix.strip('/')}/"
+        assert source.startswith(prefix)
+        assert source.endswith("/exclusions.parquet")
+        assert storage_options == {"account_name": endpoint.account}
+        assert isinstance(credential_provider, pl.CredentialProviderAzure)
+        assert glob is False
+        state.loads.append(
+            source.removeprefix(prefix).removesuffix("/exclusions.parquet")
+        )
+        return state.frame
+
+    endpoint = nssp.datacat.public.stf.nssp_exclusions.load
+    monkeypatch.setattr(endpoint, "get_versions", get_versions)
+    monkeypatch.setattr(pl, "read_parquet", read_parquet)
+    return state
+
+
+def reviewed_nssp(**kwargs):
+    return nssp.get_nssp(
+        **({"as_of": REVIEW_DATE, "lazy": False} | kwargs),
+        apply_data_review_exclusions=True,
+    )
+
+
+def test_disabled_exclusions_do_not_access_catalog(exclusion_catalog):
+    default = nssp.get_nssp(lazy=False)
+    explicit = nssp.get_nssp(lazy=False, apply_data_review_exclusions=False)
+    assert_frame_equal(default, explicit)
+    assert "exclude" not in default.columns
+    assert exclusion_catalog.listings == exclusion_catalog.loads == []
+
+
+def test_exclusion_version_requires_opt_in(monkeypatch, exclusion_catalog):
+    def unexpected_load(*args, **kwargs):
+        pytest.fail("Invalid options must fail before loading NSSP")
+
+    monkeypatch.setattr(nssp, "_get_nssp_dataset", unexpected_load)
+    with pytest.raises(ValueError, match="requires apply_data_review_exclusions"):
+        nssp.get_nssp(exclusion_version="anything")
+    assert exclusion_catalog.listings == exclusion_catalog.loads == []
+
+
+@pytest.mark.parametrize("dataset", ["gold", "comprehensive"])
+@pytest.mark.parametrize("lazy", [False, True])
+@pytest.mark.parametrize("state_abb", [None, "CA", ["CA", "AK"]])
+def test_review_flags_preserve_observations(
+    exclusion_catalog, dataset, lazy, state_abb
+):
+    expected = nssp.get_nssp(
+        dataset=dataset, as_of=REVIEW_DATE, state_abb=state_abb, lazy=False
+    )
+    result = reviewed_nssp(dataset=dataset, lazy=lazy, state_abb=state_abb)
+    assert isinstance(result, pl.LazyFrame if lazy else pl.DataFrame)
+    if lazy:
+        result = result.collect()
+    assert_frame_equal(result.drop("exclude"), expected)
+    assert result.schema["exclude"] == pl.Boolean
+    assert result["exclude"].null_count() == 0
+    assert result.filter("exclude").select("state_abb", "disease").rows() == [
+        ("CA", "covid"),
+        ("CA", "flu"),
+    ]
+    assert not result.filter(pl.col("state_abb") == "US")["exclude"].any()
+    assert exclusion_catalog.loads == [max(exclusion_catalog.versions)]
+
+
+def test_us_review_flags_are_independent(exclusion_catalog):
+    exclusion_catalog.frame = exclusion_catalog.frame.with_columns(
+        pl.when(pl.col("state_abb") == "US")
+        .then(pl.lit([dt.date(2024, 1, 6)], dtype=pl.List(pl.Date)))
+        .otherwise(pl.col("excluded_dates"))
+        .alias("excluded_dates")
+    )
+    result = reviewed_nssp(state_abb=["CA", "US"], disease=["flu", "covid"])
+    assert result.filter("exclude").select("state_abb", "date").unique().sort(
+        "state_abb"
+    ).rows() == [("CA", dt.date(2024, 1, 13)), ("US", dt.date(2024, 1, 6))]
+
+
+@pytest.mark.parametrize("empty", [False, True])
+def test_review_with_date_filters(exclusion_catalog, empty):
+    start = dt.date(2025, 1, 1) if empty else dt.date(2024, 1, 13)
+    kwargs = {"start_date": start, "end_date": start}
+    expected = nssp.get_nssp(**kwargs, lazy=False)
+    result = reviewed_nssp(**kwargs)
+    assert_frame_equal(result.drop("exclude"), expected)
+    assert result.is_empty() == empty
+
+
+@pytest.mark.parametrize(
+    "version",
+    ["release-review-final", "2024-01-14T12-00-00", ">=opaque", "review[final]"],
+)
+def test_exact_exclusion_version_round_trip(exclusion_catalog, version):
+    exclusion_catalog.versions.append(version)
+    resolved = resolve_nssp_exclusion_version(version)
+    assert resolved == version
+    reviewed_nssp(exclusion_version=resolved)
+    assert exclusion_catalog.loads == [version]
+
+
+def test_exclusion_version_failures(exclusion_catalog):
+    with pytest.raises(ValueError, match="not found"):
+        reviewed_nssp(exclusion_version=">=2024-01-14")
+    exclusion_catalog.versions = []
+    with pytest.raises(ValueError, match="No published"):
+        reviewed_nssp()
+    assert exclusion_catalog.loads == []
+
+
+@pytest.mark.parametrize("dataset", ["gold", "comprehensive"])
+@pytest.mark.parametrize("version", ["2024-01-14T15-30-00", "2024-01-14T15:30:00"])
+def test_latest_nssp_is_pinned_to_review_date(
+    monkeypatch, exclusion_catalog, nssp_data, dataset, version
+):
+    calls = []
+    endpoint = nssp._get_nssp_dataset(dataset).load
+
+    def resolve_version(*, version_spec):
+        calls.append(("resolve", version_spec))
+        # A subsequent resolution would see a newer vintage.
+        return SimpleNamespace(version=version if len(calls) == 1 else "2024-01-15")
+
+    def get_dataframe(*, output, version_spec):
+        calls.append(("load", version_spec))
+        return nssp_data.lazy()
+
+    monkeypatch.setattr(endpoint, "resolve_version", resolve_version)
+    monkeypatch.setattr(endpoint, "get_dataframe", get_dataframe)
+    assert reviewed_nssp(as_of=None, dataset=dataset)["exclude"].any()
+    assert calls == [("resolve", "<=9999-12-31T00-00-00"), ("load", version)]
+
+
+def test_explicit_date_is_used_even_when_nssp_is_older(monkeypatch, exclusion_catalog):
+    endpoint = nssp._get_nssp_dataset("gold").load
+    monkeypatch.setattr(
+        endpoint, "resolve_version", lambda **_: SimpleNamespace(version="2024-01-13")
+    )
+    assert reviewed_nssp()["exclude"].any()
+
+
+@pytest.mark.parametrize("version", [None, "undated-vintage"])
+def test_latest_nssp_requires_resolvable_date(monkeypatch, exclusion_catalog, version):
+    endpoint = nssp._get_nssp_dataset("gold").load
+    monkeypatch.setattr(
+        endpoint, "resolve_version", lambda **_: SimpleNamespace(version=version)
+    )
+    with pytest.raises(ValueError, match="Cannot determine"):
+        reviewed_nssp(as_of=None)
+    assert exclusion_catalog.loads == []
+
+
+@pytest.mark.parametrize("empty_snapshot", [False, True])
+def test_missing_review_warns_and_flags_false(exclusion_catalog, empty_snapshot):
+    if empty_snapshot:
+        exclusion_catalog.frame = exclusion_catalog.frame.clear()
+    with pytest.warns(UserWarning, match="2024-01-15T12-00-00.*2024-01-16"):
+        result = reviewed_nssp(as_of=dt.date(2024, 1, 16))
+    assert not result["exclude"].any()
+
+
+def test_reviewed_empty_lists_do_not_warn(exclusion_catalog, recwarn):
+    exclusion_catalog.frame = exclusion_catalog.frame.with_columns(
+        pl.lit([], dtype=pl.List(pl.Date)).alias("excluded_dates")
+    )
+    assert not reviewed_nssp()["exclude"].any()
+    assert not recwarn
+
+
+@pytest.mark.parametrize(
+    "malformation,match",
+    [
+        (lambda f: f.drop("excluded_dates"), "schema"),
+        (lambda f: f.with_columns(extra=pl.lit(1)), "schema"),
+        (lambda f: f.with_columns(pl.col("reference_date").cast(pl.String)), "schema"),
+        (
+            lambda f: f.with_columns(pl.col("excluded_dates").cast(pl.List(pl.String))),
+            "schema",
+        ),
+        (lambda f: f.filter(pl.col("state_abb") != "AK"), "coverage"),
+        (
+            lambda f: f.with_columns(pl.col("state_abb").replace({"AK": "ZZ"})),
+            "coverage",
+        ),
+        (lambda f: pl.concat([f, f.head(1)]), "duplicate scopes"),
+        (
+            lambda f: f.with_columns(pl.lit(None, dtype=pl.String).alias("state_abb")),
+            "null values",
+        ),
+        (
+            lambda f: f.with_columns(
+                pl.lit(None, dtype=pl.List(pl.Date)).alias("excluded_dates")
+            ),
+            "null values",
+        ),
+        (
+            lambda f: f.with_columns(
+                pl.lit([None], dtype=pl.List(pl.Date)).alias("excluded_dates")
+            ),
+            "null dates",
+        ),
+        (
+            lambda f: f.with_columns(
+                pl.lit([REVIEW_DATE, REVIEW_DATE], dtype=pl.List(pl.Date)).alias(
+                    "excluded_dates"
+                )
+            ),
+            "sorted, unique",
+        ),
+        (
+            lambda f: f.with_columns(
+                pl.lit(
+                    [REVIEW_DATE, dt.date(2024, 1, 1)], dtype=pl.List(pl.Date)
+                ).alias("excluded_dates")
+            ),
+            "sorted, unique",
+        ),
+    ],
+)
+def test_malformed_requested_review_rejected(exclusion_catalog, malformation, match):
+    exclusion_catalog.frame = malformation(exclusion_catalog.frame)
+    with pytest.raises(ValueError, match=match):
+        reviewed_nssp(state_abb="CA")
+
+
+def test_unrelated_malformed_review_is_ignored(exclusion_catalog):
+    malformed = exclusion_catalog.frame.head(1).with_columns(
+        reference_date=pl.lit(dt.date(2024, 1, 1)),
+        state_abb=pl.lit(None, dtype=pl.String),
+        excluded_dates=pl.lit([None], dtype=pl.List(pl.Date)),
+    )
+    exclusion_catalog.frame = pl.concat([exclusion_catalog.frame, malformed, malformed])
+    assert reviewed_nssp()["exclude"].any()
+
+
+def test_catalog_errors_propagate(monkeypatch, exclusion_catalog):
+    def broken_load(*args, **kwargs):
+        raise OSError("Azure unavailable")
+
+    monkeypatch.setattr(pl, "read_parquet", broken_load)
+    with pytest.raises(OSError, match="Azure unavailable"):
+        reviewed_nssp()
+
+
+def test_unsupported_nssp_location_is_not_excluded(
+    monkeypatch, exclusion_catalog, nssp_data
+):
+    data = nssp_data.with_columns(pl.lit("PR").alias("geo_value"))
+    monkeypatch.setattr(
+        nssp._get_nssp_dataset("gold").load, "get_dataframe", lazy_catalog_loader(data)
+    )
+    result = reviewed_nssp(state_abb="PR")
+    assert result.height > 0
+    assert not result["exclude"].any()

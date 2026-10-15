@@ -55,22 +55,52 @@ For NSSP data, `target_type` is `"inc ed visits"`.
 !!! note "National NSSP values"
     When `state_abb="US"`, values are computed by aggregating the available geographic rows in the selected catalog dataset and vintage.
 
-## Flag an incomplete tail
+## Apply published data-review exclusions
 
 ```python
-from cfa.stf.data import get_nssp_with_exclusion
+from cfa.stf.data import get_nssp, resolve_nssp_exclusion_version
 
-visits = get_nssp_with_exclusion(
+exclusion_version = resolve_nssp_exclusion_version()
+visits = get_nssp(
     disease="flu",
     state_abb="CA",
-    exclusion_strategy="tail_by_n",
-    n=3,
+    apply_data_review_exclusions=True,
+    exclusion_version=exclusion_version,
 )
 ```
 
-This eager result adds a Boolean `exclude` column.
-Automatic strategies can instead detect a discontinuity in the recent tail using the target disease, the sum of the three respiratory diseases, or the NSSP total series.
-See the [NSSP API reference](api/nssp.md) for all strategy arguments.
+The result adds a Boolean `exclude` column without removing observations.
+Exclusions apply across diseases for each location and observation date.
+US flags use the US review; state exclusions do not change national counts.
+The default return type is still lazy; pass `lazy=False` for a DataFrame.
+
+Without `as_of`, the latest NSSP vintage is resolved and its calendar date selects the corresponding review in the snapshot.
+To select a particular review date:
+
+```python
+import datetime as dt
+
+visits = get_nssp(
+    as_of=dt.date(2026, 10, 1),
+    apply_data_review_exclusions=True,
+    exclusion_version=exclusion_version,
+    lazy=False,
+)
+```
+
+An explicit `as_of` selects that review date even if the available NSSP vintage is older.
+Omitting `exclusion_version` uses the newest published exclusions snapshot, independently of `as_of`.
+Record the exact string returned by `resolve_nssp_exclusion_version()` and supply it on subsequent calls to reload the same exclusions snapshot.
+Record the NSSP vintage separately for reproducibility.
+
+If the snapshot lacks the requested review date, the function warns and returns `exclude=False` for every observation.
+A represented review must cover all 50 states, DC, and US, even for a query requesting a single location.
+Malformed reviews for the requested date raise an error; other review dates are not validated.
+Locations outside that supported set receive `exclude=False`.
+
+`get_nssp_with_exclusion()` and its manual and computed tail strategies have been removed.
+Use the opt-in flags above; callers decide whether to filter flagged rows.
+See the [NSSP API reference](api/nssp.md).
 
 ## Preview the documentation
 

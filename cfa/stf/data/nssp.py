@@ -6,6 +6,7 @@ from typing import Literal, overload
 import polars as pl
 from cfa.dataops import datacat
 
+from ._nssp_exclusions import _review_flags
 from ._utils import (
     _version_spec,
     _version_to_datetime,
@@ -68,6 +69,8 @@ def get_nssp(
     start_date: dt.date | None = None,
     end_date: dt.date | None = None,
     lazy: Literal[True] = ...,
+    apply_data_review_exclusions: bool = False,
+    exclusion_version: str | None = None,
 ) -> pl.LazyFrame: ...
 
 
@@ -80,6 +83,8 @@ def get_nssp(
     start_date: dt.date | None = None,
     end_date: dt.date | None = None,
     lazy: Literal[False] = ...,
+    apply_data_review_exclusions: bool = False,
+    exclusion_version: str | None = None,
 ) -> pl.DataFrame: ...
 
 
@@ -91,6 +96,8 @@ def get_nssp(
     start_date: dt.date | None = None,
     end_date: dt.date | None = None,
     lazy: bool = True,
+    apply_data_review_exclusions: bool = False,
+    exclusion_version: str | None = None,
 ) -> pl.DataFrame | pl.LazyFrame:
     """
     Retrieve and filter NSSP emergency department data.
@@ -121,6 +128,15 @@ def get_nssp(
     lazy
         Whether to return a lazy frame (defaults to True). If True, returns a
         `pl.LazyFrame`; if False, returns a `pl.DataFrame`.
+    apply_data_review_exclusions
+        Add Boolean ``exclude`` flags from a published data-review snapshot,
+        without removing observations. Defaults to False. Reviews apply to all
+        diseases at a location. An explicit ``as_of`` selects the review date;
+        otherwise the date of the latest NSSP catalog vintage is used.
+    exclusion_version
+        Exact, opaque data-review version to load, or None for the newest
+        published snapshot. Requires ``apply_data_review_exclusions=True``.
+        Use ``resolve_nssp_exclusion_version`` to record and reuse this version.
 
     Returns
     -------
@@ -129,6 +145,9 @@ def get_nssp(
         `date`, `state_abb`, `disease`, `target_type`, and `value`.
         `target_type` is always `"inc ed visits"`, and `value` is the
         corresponding incident ED-visit count.
+        When review exclusions are enabled, a non-null Boolean ``exclude``
+        column is appended. A missing review date emits a warning and sets all
+        flags to False; malformed reviews raise ValueError.
 
     Notes
     -----
@@ -136,6 +155,9 @@ def get_nssp(
       "flu", and "rsv".
     - The function only includes data from parquet files with dates up to and including the as_of date.
     """
+    if exclusion_version is not None and not apply_data_review_exclusions:
+        raise ValueError("exclusion_version requires apply_data_review_exclusions=True")
+
     state_abb = ensure_list(state_abb)
     get_all_locs = not state_abb
 
@@ -143,6 +165,22 @@ def get_nssp(
     get_all_diseases = not disease
 
     datacat_dataset = _get_nssp_dataset(dataset)
+    version_spec = _version_spec(as_of)
+    review_flags = None
+    if apply_data_review_exclusions:
+        reference_date = as_of
+        if reference_date is None:
+            version = datacat_dataset.load.resolve_version(
+                version_spec=version_spec
+            ).version
+            parsed_version = _version_to_datetime(version)
+            if not isinstance(parsed_version, dt.datetime):
+                raise ValueError(
+                    f"Cannot determine the latest NSSP vintage date from {version!r}"
+                )
+            reference_date = parsed_version.date()
+            version_spec = version
+        review_flags = _review_flags(reference_date, exclusion_version)
 
     national_required = get_all_locs or "US" in state_abb
 
@@ -160,7 +198,7 @@ def get_nssp(
     dat = (
         datacat_dataset.load.get_dataframe(
             output="pl_lazy",
-            version_spec=_version_spec(as_of),
+            version_spec=version_spec,
         )
         .rename({"reference_date": "date", "geo_value": "state_abb"})
         .with_columns(canonical_disease_expr())
@@ -206,6 +244,18 @@ def get_nssp(
         )
         if missing_locs := set(state_abb) - set(result_loc_abbr):
             warnings.warn(f"Requested locations {missing_locs} not found in results.")
+
+    if review_flags is not None:
+        review_flags = review_flags.with_columns(
+            pl.col("state_abb").cast(result.collect_schema()["state_abb"])
+        )
+        result = result.join(
+            review_flags.lazy(),
+            on=["state_abb", "date"],
+            how="left",
+            validate="m:1",
+            maintain_order="left",
+        ).with_columns(pl.col("exclude").fill_null(False))
 
     if not lazy:
         result = result.collect()

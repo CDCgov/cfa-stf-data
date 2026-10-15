@@ -53,14 +53,7 @@ def _review_flags(
 ) -> pl.DataFrame:
     version = resolve_nssp_exclusion_version(exclusion_version)
     endpoint = datacat.public.stf.nssp_exclusions.load
-    # DataOps get_dataframe parses versions as packaging constraints. Read the
-    # exact catalog-backed snapshot path to preserve opaque version identifiers.
-    frame = pl.read_parquet(
-        f"az://{endpoint.container}/{endpoint.prefix.strip('/')}/{version}/exclusions.parquet",
-        storage_options={"account_name": endpoint.account},
-        credential_provider=pl.CredentialProviderAzure(),
-        glob=False,
-    )
+    frame = endpoint.get_dataframe(output="polars", version_spec=version)
     if dict(frame.schema) != _SCHEMA:
         raise ValueError(f"NSSP exclusion snapshot must have schema {_SCHEMA}")
 

@@ -323,21 +323,14 @@ def exclusion_catalog(monkeypatch, reviewed_exclusions):
         state.listings.append(True)
         return state.versions
 
-    def read_parquet(source, *, storage_options, credential_provider, glob):
-        prefix = f"az://{endpoint.container}/{endpoint.prefix.strip('/')}/"
-        assert source.startswith(prefix)
-        assert source.endswith("/exclusions.parquet")
-        assert storage_options == {"account_name": endpoint.account}
-        assert isinstance(credential_provider, pl.CredentialProviderAzure)
-        assert glob is False
-        state.loads.append(
-            source.removeprefix(prefix).removesuffix("/exclusions.parquet")
-        )
+    def get_dataframe(*, output, version_spec):
+        assert output == "polars"
+        state.loads.append(version_spec)
         return state.frame
 
     endpoint = nssp.datacat.public.stf.nssp_exclusions.load
     monkeypatch.setattr(endpoint, "get_versions", get_versions)
-    monkeypatch.setattr(pl, "read_parquet", read_parquet)
+    monkeypatch.setattr(endpoint, "get_dataframe", get_dataframe)
     return state
 
 
@@ -415,7 +408,7 @@ def test_review_with_date_filters(exclusion_catalog, empty):
 
 @pytest.mark.parametrize(
     "version",
-    ["release-review-final", "2024-01-14T12-00-00", ">=opaque", "review[final]"],
+    ["2024-01-14T12-00-00", "2024-01-15T12-00-00"],
 )
 def test_exact_exclusion_version_round_trip(exclusion_catalog, version):
     exclusion_catalog.versions.append(version)
@@ -423,6 +416,13 @@ def test_exact_exclusion_version_round_trip(exclusion_catalog, version):
     assert resolved == version
     reviewed_nssp(exclusion_version=resolved)
     assert exclusion_catalog.loads == [version]
+
+
+def test_exclusion_resolver_preserves_opaque_version(exclusion_catalog):
+    version = "release-review-final"
+    exclusion_catalog.versions.append(version)
+    assert resolve_nssp_exclusion_version(version) == version
+    assert exclusion_catalog.loads == []
 
 
 def test_exclusion_version_failures(exclusion_catalog):
@@ -563,7 +563,9 @@ def test_catalog_errors_propagate(monkeypatch, exclusion_catalog):
     def broken_load(*args, **kwargs):
         raise OSError("Azure unavailable")
 
-    monkeypatch.setattr(pl, "read_parquet", broken_load)
+    monkeypatch.setattr(
+        nssp.datacat.public.stf.nssp_exclusions.load, "get_dataframe", broken_load
+    )
     with pytest.raises(OSError, match="Azure unavailable"):
         reviewed_nssp()
 

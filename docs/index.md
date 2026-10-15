@@ -12,7 +12,7 @@ The `cfa.stf.data` package provides a consistent Polars interface to public fore
 - NHSN weekly hospital respiratory admissions
 - NSSP daily emergency department visits
 - generation interval, delay, and right-truncation probability mass functions
-- NSSP tail-exclusion rules for incomplete or anomalous recent observations
+- versioned NSSP data-review exclusion flags
 
 [Get started](getting-started.md){ .md-button .md-button--primary } [API reference](api/nhsn.md){ .md-button }
 
@@ -39,9 +39,9 @@ data = nssp.collect()
 
 ## Package areas
 
-  | Area               | Primary functions                                                                                       | Output                                      |
-  | ------------------ | ------------------------------------------------------------------------------------------------------- | ------------------------------------------- |
-  | NHSN               | [`get_nhsn_hrd`][cfa.stf.data.get_nhsn_hrd]                                                             | Weekly admissions in long format            |
-  | NSSP               | [`get_nssp`][cfa.stf.data.get_nssp]                                                                     | Daily emergency department visit counts     |
-  | Tail exclusion     | [`get_nssp_with_exclusion`][cfa.stf.data.nssp_with_exclusion.get_nssp_with_exclusion]                   | NSSP data with an `exclude` indicator       |
-  | Nowcast parameters | [`get_nnh_generation_interval_pmf`][cfa.stf.data.get_nnh_generation_interval_pmf] and related functions | Probability mass functions as `list[float]` |
+  | Area                | Primary functions                                                                                       | Output                                      |
+  | ------------------- | ------------------------------------------------------------------------------------------------------- | ------------------------------------------- |
+  | NHSN                | [`get_nhsn_hrd`][cfa.stf.data.get_nhsn_hrd]                                                             | Weekly admissions in long format            |
+  | NSSP                | [`get_nssp`][cfa.stf.data.get_nssp]                                                                     | Daily emergency department visit counts     |
+  | Reviewed exclusions | [`get_nssp`][cfa.stf.data.get_nssp] with `apply_exclusions=True`                                        | NSSP data with an `exclude` indicator       |
+  | Nowcast parameters  | [`get_nnh_generation_interval_pmf`][cfa.stf.data.get_nnh_generation_interval_pmf] and related functions | Probability mass functions as `list[float]` |

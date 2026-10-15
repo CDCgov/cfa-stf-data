@@ -49,28 +49,66 @@ visits = visits.filter(
 ```
 
 `get_nssp` returns a `polars.LazyFrame` unless `lazy=False`.
-Its columns are `date`, `state_abb`, `disease`, `target_type`, and `value`.
+Its columns are `date`, `state_abb`, `disease`, `target_type`, `value`, and `exclude`.
+`exclude` is always Boolean and defaults to `False` when exclusions are disabled or missing.
 For NSSP data, `target_type` is `"inc ed visits"`.
 
 !!! note "National NSSP values"
     When `state_abb="US"`, values are computed by aggregating the available geographic rows in the selected catalog dataset and vintage.
 
-## Flag an incomplete tail
+## Apply published data-review exclusions
 
 ```python
-from cfa.stf.data import get_nssp_with_exclusion
+from cfa.stf.data import get_nssp
 
-visits = get_nssp_with_exclusion(
+visits = get_nssp(
     disease="flu",
     state_abb="CA",
-    exclusion_strategy="tail_by_n",
-    n=3,
+    apply_exclusions=True,
 )
 ```
 
-This eager result adds a Boolean `exclude` column.
-Automatic strategies can instead detect a discontinuity in the recent tail using the target disease, the sum of the three respiratory diseases, or the NSSP total series.
-See the [NSSP API reference](api/nssp.md) for all strategy arguments.
+This populates the Boolean `exclude` column without removing observations.
+Exclusions apply across diseases for each location and observation date.
+US flags use the US review; state exclusions do not change national counts.
+The default return type is still lazy; pass `lazy=False` for a DataFrame.
+
+The latest `report_date` in the loaded NSSP data selects the corresponding review in the snapshot, before applying observation filters.
+Use `as_of` to select a historical NSSP vintage:
+
+```python
+import datetime as dt
+
+from cfa.stf.data import resolve_nssp_exclusion_version
+
+exclusion_as_of = dt.date(2026, 10, 2)
+selected_version = resolve_nssp_exclusion_version(as_of=exclusion_as_of)
+visits = get_nssp(
+    as_of=dt.date(2026, 10, 1),
+    apply_exclusions=True,
+    exclusion_as_of=exclusion_as_of,
+    lazy=False,
+)
+```
+
+If the selected NSSP vintage is older than `as_of`, its latest `report_date` still determines the review date.
+`exclusion_as_of` independently selects the newest published exclusions snapshot at or before its cutoff, using the same convention as the library's other `as_of` arguments.
+A date denotes midnight at the start of that day; a datetime preserves the time of day, and the cutoff is inclusive.
+Omitting `exclusion_as_of` selects the latest snapshot, even when `as_of` selects a historical NSSP vintage and review date.
+Use `resolve_nssp_exclusion_version(as_of=exclusion_as_of)` to record the selected snapshot version.
+Like the other version resolvers, it returns a datetime when possible, otherwise the version string, or `None` if no version matches.
+If no snapshot matches the cutoff, the function warns and returns `exclude=False` for every observation.
+Record the NSSP vintage separately for reproducibility.
+
+If the snapshot lacks the requested review date, the function warns and returns `exclude=False` for every observation.
+Missing location reviews and observation dates absent from the exclusion lists receive `exclude=False`.
+Empty exclusion lists also produce false flags.
+Review rows for locations absent from the result are allowed.
+The snapshot's column names and types are checked before selecting the requested review date.
+
+`get_nssp_with_exclusion()` and its manual and computed tail strategies have been removed.
+Use the opt-in flags above; callers decide whether to filter flagged rows.
+See the [NSSP API reference](api/nssp.md).
 
 ## Preview the documentation
 

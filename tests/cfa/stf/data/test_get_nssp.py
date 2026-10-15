@@ -172,7 +172,14 @@ def test_get_nssp_returns_all_locations_and_diseases() -> None:
 
     assert {"covid", "flu", "rsv", "total"} == _unique_values(result, "disease")
     assert {"US", "CA", "SD"}.issubset(_unique_values(result, "state_abb"))
-    assert result.columns == ["date", "state_abb", "disease", "target_type", "value"]
+    assert result.columns == [
+        "date",
+        "state_abb",
+        "disease",
+        "target_type",
+        "value",
+        "exclude",
+    ]
     assert _unique_values(result, "target_type") == {"inc ed visits"}
 
 
@@ -271,7 +278,14 @@ def test_catalog_get_nssp_returns_all_locations_and_diseases() -> None:
 
     assert {"covid", "flu", "rsv", "total"} == _unique_values(result, "disease")
     assert {"US", "CA", "SD"}.issubset(_unique_values(result, "state_abb"))
-    assert result.columns == ["date", "state_abb", "disease", "target_type", "value"]
+    assert result.columns == [
+        "date",
+        "state_abb",
+        "disease",
+        "target_type",
+        "value",
+        "exclude",
+    ]
     assert _unique_values(result, "target_type") == {"inc ed visits"}
 
 
@@ -337,11 +351,25 @@ def reviewed_nssp(**kwargs):
     )
 
 
-def test_disabled_exclusions_do_not_access_catalog(exclusion_catalog):
-    default = nssp.get_nssp(lazy=False)
-    explicit = nssp.get_nssp(lazy=False, apply_exclusions=False)
+@pytest.mark.parametrize("lazy", [False, True])
+@pytest.mark.parametrize("dataset", ["gold", "comprehensive"])
+@pytest.mark.parametrize("empty", [False, True])
+def test_disabled_exclusions_return_false_without_catalog_access(
+    exclusion_catalog, lazy, dataset, empty
+):
+    kwargs = {"lazy": lazy, "dataset": dataset}
+    if empty:
+        kwargs["start_date"] = dt.date(2025, 1, 1)
+    default = nssp.get_nssp(**kwargs)
+    explicit = nssp.get_nssp(**kwargs, apply_exclusions=False)
+    assert isinstance(default, pl.LazyFrame if lazy else pl.DataFrame)
+    if lazy:
+        default, explicit = default.collect(), explicit.collect()
     assert_frame_equal(default, explicit)
-    assert "exclude" not in default.columns
+    assert default.is_empty() == empty
+    assert default.schema["exclude"] == pl.Boolean
+    assert default["exclude"].null_count() == 0
+    assert not default["exclude"].any()
     assert exclusion_catalog.resolutions == exclusion_catalog.loads == []
 
 
@@ -368,7 +396,7 @@ def test_review_flags_preserve_observations(
     assert isinstance(result, pl.LazyFrame if lazy else pl.DataFrame)
     if lazy:
         result = result.collect()
-    assert_frame_equal(result.drop("exclude"), expected)
+    assert_frame_equal(result.drop("exclude"), expected.drop("exclude"))
     assert result.schema["exclude"] == pl.Boolean
     assert result["exclude"].null_count() == 0
     assert result.filter("exclude").select("state_abb", "disease").rows() == [
@@ -398,7 +426,7 @@ def test_review_with_date_filters(exclusion_catalog, empty):
     kwargs = {"start_date": start, "end_date": start}
     expected = nssp.get_nssp(**kwargs, lazy=False)
     result = reviewed_nssp(**kwargs)
-    assert_frame_equal(result.drop("exclude"), expected)
+    assert_frame_equal(result.drop("exclude"), expected.drop("exclude"))
     assert result.is_empty() == empty
 
 
@@ -441,14 +469,18 @@ def test_exclusion_resolver_preserves_unparsable_version(
 
 
 @pytest.mark.parametrize("empty_catalog", [False, True])
-def test_no_exclusions_match_cutoff(exclusion_catalog, empty_catalog):
+@pytest.mark.parametrize("lazy", [False, True])
+def test_no_exclusions_match_cutoff(exclusion_catalog, empty_catalog, lazy):
     cutoff = dt.date(2024, 1, 14)
     if empty_catalog:
         exclusion_catalog.versions = []
         cutoff = None
     assert resolve_nssp_exclusion_version(as_of=cutoff) is None
-    with pytest.raises(ValueError, match="No published"):
-        reviewed_nssp(exclusion_as_of=cutoff)
+    with pytest.warns(UserWarning, match="No published.*returning exclude=False"):
+        result = reviewed_nssp(exclusion_as_of=cutoff, lazy=lazy)
+    if lazy:
+        result = result.collect()
+    assert_frame_equal(result, nssp.get_nssp(as_of=REVIEW_DATE, lazy=False))
     assert exclusion_catalog.loads == []
 
 
@@ -584,7 +616,7 @@ def test_catalog_errors_propagate(monkeypatch, exclusion_catalog):
 
 
 @pytest.mark.parametrize("reviewed", [False, True])
-def test_arbitrary_nssp_location_requires_review(
+def test_arbitrary_nssp_location_uses_available_review(
     monkeypatch, exclusion_catalog, nssp_data, reviewed
 ):
     data = nssp_data.with_columns(pl.lit("PR").alias("geo_value"))
@@ -599,28 +631,43 @@ def test_arbitrary_nssp_location_requires_review(
         assert result.height > 0
         assert result["exclude"].any()
     else:
-        with pytest.raises(ValueError, match="missing locations.*PR"):
-            reviewed_nssp(state_abb="PR")
+        result = reviewed_nssp(state_abb="PR")
+        assert result.height > 0
+        assert not result["exclude"].any()
 
 
 @pytest.mark.parametrize("lazy", [False, True])
 @pytest.mark.parametrize("state_abb", [None, "CA", ["CA", "US"]])
-def test_missing_result_location_review_rejected(exclusion_catalog, lazy, state_abb):
+def test_missing_location_review_defaults_to_false(exclusion_catalog, lazy, state_abb):
     exclusion_catalog.frame = exclusion_catalog.frame.filter(
         pl.col("state_abb") != "CA"
     )
-    with pytest.raises(ValueError, match="missing locations.*CA"):
-        reviewed_nssp(state_abb=state_abb, lazy=lazy)
+    exclusion_catalog.frame = exclusion_catalog.frame.with_columns(
+        pl.when(pl.col("state_abb") == "US")
+        .then(pl.lit([dt.date(2024, 1, 13)], dtype=pl.List(pl.Date)))
+        .otherwise(pl.col("excluded_dates"))
+        .alias("excluded_dates")
+    )
+    result = reviewed_nssp(state_abb=state_abb, lazy=lazy)
+    if lazy:
+        result = result.collect()
+    expected = nssp.get_nssp(state_abb=state_abb, as_of=REVIEW_DATE, lazy=False)
+    assert_frame_equal(result.drop("exclude"), expected.drop("exclude"))
+    assert result.schema["exclude"] == pl.Boolean
+    assert result["exclude"].null_count() == 0
+    assert not result.filter(pl.col("state_abb") == "CA")["exclude"].any()
+    if state_abb != "CA":
+        assert result.filter(pl.col("state_abb") == "US")["exclude"].any()
 
 
-def test_only_result_locations_require_review(exclusion_catalog):
+def test_partial_review_respects_nssp_filters(exclusion_catalog):
     exclusion_catalog.frame = exclusion_catalog.frame.filter(
         pl.col("state_abb") == "CA"
     )
     assert reviewed_nssp(state_abb="CA")["exclude"].any()
-    # Date filtering removes all observations, so no location coverage is needed.
+    # Date filtering can remove all observations.
     assert reviewed_nssp(start_date=dt.date(2025, 1, 1)).is_empty()
-    # AK has no observations after this date and therefore needs no review row.
+    # AK has no observations after this date.
     with pytest.warns(UserWarning, match="Requested locations.*AK.*not found"):
         result = reviewed_nssp(state_abb=["AK", "CA"], start_date=dt.date(2024, 1, 13))
     assert result["exclude"].all()

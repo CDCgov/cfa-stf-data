@@ -49,7 +49,8 @@ visits = visits.filter(
 ```
 
 `get_nssp` returns a `polars.LazyFrame` unless `lazy=False`.
-Its columns are `date`, `state_abb`, `disease`, `target_type`, and `value`.
+Its columns are `date`, `state_abb`, `disease`, `target_type`, `value`, and `exclude`.
+`exclude` is always Boolean and defaults to `False` when exclusions are disabled or missing.
 For NSSP data, `target_type` is `"inc ed visits"`.
 
 !!! note "National NSSP values"
@@ -67,7 +68,7 @@ visits = get_nssp(
 )
 ```
 
-The result adds a Boolean `exclude` column without removing observations.
+This populates the Boolean `exclude` column without removing observations.
 Exclusions apply across diseases for each location and observation date.
 US flags use the US review; state exclusions do not change national counts.
 The default return type is still lazy; pass `lazy=False` for a DataFrame.
@@ -96,12 +97,12 @@ A date denotes midnight at the start of that day; a datetime preserves the time 
 Omitting `exclusion_as_of` selects the latest snapshot, even when `as_of` selects a historical NSSP vintage and review date.
 Use `resolve_nssp_exclusion_version(as_of=exclusion_as_of)` to record the selected snapshot version.
 Like the other version resolvers, it returns a datetime when possible, otherwise the version string, or `None` if no version matches.
-Loading exclusions raises an error if no snapshot matches the cutoff.
+If no snapshot matches the cutoff, the function warns and returns `exclude=False` for every observation.
 Record the NSSP vintage separately for reproducibility.
 
 If the snapshot lacks the requested review date, the function warns and returns `exclude=False` for every observation.
-A represented review must contain a row for every location in the filtered NSSP result.
-An empty exclusion list counts as reviewed; a missing location row raises an error.
+Missing location reviews and observation dates absent from the exclusion lists receive `exclude=False`.
+Empty exclusion lists also produce false flags.
 Review rows for locations absent from the result are allowed.
 Malformed reviews for the requested date raise an error; other review dates are not validated.
 

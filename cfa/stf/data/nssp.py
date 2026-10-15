@@ -146,13 +146,12 @@ def get_nssp(
     -------
     pl.DataFrame | pl.LazyFrame
         Aggregated ED counts with columns:
-        `date`, `state_abb`, `disease`, `target_type`, and `value`.
+        `date`, `state_abb`, `disease`, `target_type`, `value`, and `exclude`.
         `target_type` is always `"inc ed visits"`, and `value` is the
         corresponding incident ED-visit count.
-        When review exclusions are enabled, a non-null Boolean ``exclude``
-        column is appended. A missing review date emits a warning and sets all
-        flags to False; malformed reviews or missing review rows for locations
-        present in the filtered NSSP result raise ValueError.
+        ``exclude`` is always a non-null Boolean column. Flags are False when
+        exclusions are disabled or missing. A missing snapshot or review date
+        emits a warning; malformed reviews raise ValueError.
 
     Notes
     -----
@@ -254,31 +253,15 @@ def get_nssp(
         review_flags = review_flags.with_columns(
             pl.col("state_abb").cast(result.collect_schema()["state_abb"])
         )
-        if not review_flags.is_empty():
-            missing_review_locs = (
-                result.select("state_abb")
-                .unique()
-                .join(
-                    review_flags.lazy().select("state_abb").unique(),
-                    on="state_abb",
-                    how="anti",
-                )
-                .collect()
-                .get_column("state_abb")
-                .to_list()
-            )
-            if missing_review_locs:
-                raise ValueError(
-                    f"NSSP review {reference_date} is missing locations present "
-                    f"in the NSSP result: {sorted(missing_review_locs)}"
-                )
         result = result.join(
-            review_flags.drop_nulls("date").lazy(),
+            review_flags.lazy(),
             on=["state_abb", "date"],
             how="left",
             validate="m:1",
             maintain_order="left",
         ).with_columns(pl.col("exclude").fill_null(False))
+    else:
+        result = result.with_columns(pl.lit(False).alias("exclude"))
 
     if not lazy:
         result = result.collect()

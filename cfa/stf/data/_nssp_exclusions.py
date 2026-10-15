@@ -41,15 +41,18 @@ def resolve_nssp_exclusion_version(
 
 def _review_flags(
     reference_date: dt.date, exclusion_as_of: dt.date | None
-) -> pl.DataFrame:
+) -> pl.DataFrame | None:
     endpoint = datacat.public.stf.nssp_exclusions.load
     version = endpoint.resolve_version(
         version_spec=_version_spec(exclusion_as_of)
     ).version
     if version is None:
-        raise ValueError(
-            f"No published NSSP exclusion snapshot matches exclusion_as_of={exclusion_as_of!r}"
+        warnings.warn(
+            f"No published NSSP exclusion snapshot matches exclusion_as_of={exclusion_as_of!r}; "
+            "returning exclude=False.",
+            stacklevel=3,
         )
+        return None
     frame = endpoint.get_dataframe(output="polars", version_spec=version)
     if dict(frame.schema) != _SCHEMA:
         raise ValueError(f"NSSP exclusion snapshot must have schema {_SCHEMA}")
@@ -83,9 +86,7 @@ def _review_flags(
 
     return (
         review.select("state_abb", "excluded_dates")
-        # Keep reviewed locations with empty lists for coverage validation at
-        # the NSSP join. Only an absent reference date produces an empty frame.
-        .explode("excluded_dates", empty_as_null=True)
+        .explode("excluded_dates", empty_as_null=False)
         .rename({"excluded_dates": "date"})
         .with_columns(pl.lit(True).alias("exclude"))
     )

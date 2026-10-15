@@ -50,7 +50,6 @@ def _review_flags(
         warnings.warn(
             f"No published NSSP exclusion snapshot matches exclusion_as_of={exclusion_as_of!r}; "
             "returning exclude=False.",
-            stacklevel=3,
         )
         return None
     frame = endpoint.get_dataframe(output="polars", version_spec=version)
@@ -62,7 +61,6 @@ def _review_flags(
         warnings.warn(
             f"NSSP exclusion snapshot {version!r} has no review for "
             f"reference date {reference_date}; returning exclude=False.",
-            stacklevel=3,
         )
     else:
         if any(review.null_count().row(0)):

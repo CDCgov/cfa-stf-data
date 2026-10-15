@@ -74,7 +74,10 @@ def nssp_data() -> pl.DataFrame:
             ],
             "value": [10, 20, 30, 40, 50, 60, 70, 80, 90, 100, 999],
         }
-    ).with_columns(pl.col("geo_value").cast(pl.Categorical))
+    ).with_columns(
+        pl.col("geo_value").cast(pl.Categorical),
+        pl.lit(dt.date(2024, 1, 14)).alias("report_date"),
+    )
 
 
 @pytest.fixture
@@ -485,17 +488,15 @@ def test_no_exclusions_match_cutoff(exclusion_catalog, empty_catalog, lazy):
 
 
 @pytest.mark.parametrize("dataset", ["gold", "comprehensive"])
-@pytest.mark.parametrize("version", ["2024-01-14T15-30-00", "2024-01-14T15:30:00"])
-def test_latest_nssp_is_pinned_to_review_date(
-    monkeypatch, exclusion_catalog, nssp_data, dataset, version
+@pytest.mark.parametrize("as_of", [None, dt.date(2024, 1, 15)])
+def test_review_date_comes_from_loaded_nssp(
+    monkeypatch, exclusion_catalog, nssp_data, dataset, as_of
 ):
     calls = []
     endpoint = nssp._get_nssp_dataset(dataset).load
 
-    def resolve_version(*, version_spec):
-        calls.append(("resolve", version_spec))
-        # A subsequent resolution would see a newer vintage.
-        return SimpleNamespace(version=version if len(calls) == 1 else "2024-01-15")
+    def resolve_version(**kwargs):
+        pytest.fail("Review dates should come from the loaded data")
 
     def get_dataframe(*, output, version_spec):
         calls.append(("load", version_spec))
@@ -503,35 +504,52 @@ def test_latest_nssp_is_pinned_to_review_date(
 
     monkeypatch.setattr(endpoint, "resolve_version", resolve_version)
     monkeypatch.setattr(endpoint, "get_dataframe", get_dataframe)
-    assert reviewed_nssp(as_of=None, dataset=dataset)["exclude"].any()
-    assert calls == [("resolve", "<=9999-12-31T00-00-00"), ("load", version)]
-
-
-def test_explicit_date_is_used_even_when_nssp_is_older(monkeypatch, exclusion_catalog):
-    endpoint = nssp._get_nssp_dataset("gold").load
-    monkeypatch.setattr(
-        endpoint, "resolve_version", lambda **_: SimpleNamespace(version="2024-01-13")
+    assert reviewed_nssp(as_of=as_of, dataset=dataset)["exclude"].any()
+    expected_spec = (
+        "<=9999-12-31T00-00-00" if as_of is None else "<=2024-01-15T00-00-00"
     )
-    assert reviewed_nssp()["exclude"].any()
+    assert calls == [("load", expected_spec)]
 
 
-@pytest.mark.parametrize("version", [None, "undated-vintage"])
-def test_latest_nssp_requires_resolvable_date(monkeypatch, exclusion_catalog, version):
-    endpoint = nssp._get_nssp_dataset("gold").load
-    monkeypatch.setattr(
-        endpoint, "resolve_version", lambda **_: SimpleNamespace(version=version)
+def test_latest_report_date_is_selected_before_filters(
+    monkeypatch, exclusion_catalog, nssp_data
+):
+    data = nssp_data.with_columns(
+        pl.when(pl.col("metric") == "other_metric")
+        .then(pl.lit(REVIEW_DATE))
+        .otherwise(pl.lit(dt.date(2024, 1, 13)))
+        .alias("report_date")
     )
-    with pytest.raises(ValueError, match="Cannot determine"):
-        reviewed_nssp(as_of=None)
-    assert exclusion_catalog.loads == []
+    monkeypatch.setattr(
+        nssp._get_nssp_dataset("comprehensive").load,
+        "get_dataframe",
+        lazy_catalog_loader(data),
+    )
+    assert reviewed_nssp(dataset="comprehensive", state_abb="CA")["exclude"].any()
+
+
+def test_empty_nssp_needs_no_review_date(monkeypatch, exclusion_catalog, nssp_data):
+    monkeypatch.setattr(
+        nssp._get_nssp_dataset("gold").load,
+        "get_dataframe",
+        lazy_catalog_loader(nssp_data.clear()),
+    )
+    result = reviewed_nssp(as_of=None)
+    assert result.is_empty()
+    assert result.schema["exclude"] == pl.Boolean
+    assert exclusion_catalog.resolutions == exclusion_catalog.loads == []
 
 
 @pytest.mark.parametrize("empty_snapshot", [False, True])
 def test_missing_review_warns_and_flags_false(exclusion_catalog, empty_snapshot):
     if empty_snapshot:
         exclusion_catalog.frame = exclusion_catalog.frame.clear()
-    with pytest.warns(UserWarning, match="2024-01-15T12-00-00.*2024-01-16"):
-        result = reviewed_nssp(as_of=dt.date(2024, 1, 16))
+    else:
+        exclusion_catalog.frame = exclusion_catalog.frame.with_columns(
+            pl.lit(dt.date(2024, 1, 16)).alias("reference_date")
+        )
+    with pytest.warns(UserWarning, match="2024-01-15T12-00-00.*2024-01-14"):
+        result = reviewed_nssp()
     assert not result["exclude"].any()
 
 

@@ -131,8 +131,8 @@ def get_nssp(
     apply_exclusions
         Add Boolean ``exclude`` flags from a published data-review snapshot,
         without removing observations. Defaults to False. Reviews apply to all
-        diseases at a location. An explicit ``as_of`` selects the review date;
-        otherwise the date of the latest NSSP catalog vintage is used.
+        diseases at a location. The latest ``report_date`` in the loaded NSSP
+        data selects the review date, before applying observation filters.
     exclusion_as_of
         The latest catalog version date to consider for the data-review
         snapshot, or None for the newest available snapshot. Uses the same
@@ -169,19 +169,14 @@ def get_nssp(
     get_all_diseases = not disease
 
     datacat_dataset = _get_nssp_dataset(dataset)
-    version_spec = _version_spec(as_of)
-    reference_date = as_of
-    if apply_exclusions and as_of is None:
-        # Pin the data load and review date to the same latest vintage.
-        version_spec = datacat_dataset.load.resolve_version(
-            version_spec=version_spec
-        ).version
-        resolved_version = _version_to_datetime(version_spec)
-        if not isinstance(resolved_version, dt.datetime):
-            raise ValueError(
-                f"Cannot determine the latest NSSP vintage date from {version_spec!r}"
-            )
-        reference_date = resolved_version.date()
+    dat = datacat_dataset.load.get_dataframe(
+        output="pl_lazy", version_spec=_version_spec(as_of)
+    )
+    reference_date = (
+        dat.select(pl.col("report_date").max()).collect().item()
+        if apply_exclusions
+        else None
+    )
 
     national_required = get_all_locs or "US" in state_abb
 
@@ -197,11 +192,7 @@ def get_nssp(
         filters.append(pl.col("date") <= end_date)
 
     dat = (
-        datacat_dataset.load.get_dataframe(
-            output="pl_lazy",
-            version_spec=version_spec,
-        )
-        .rename({"reference_date": "date", "geo_value": "state_abb"})
+        dat.rename({"reference_date": "date", "geo_value": "state_abb"})
         .with_columns(canonical_disease_expr())
         .filter(*filters)
     )
@@ -247,7 +238,9 @@ def get_nssp(
             warnings.warn(f"Requested locations {missing_locs} not found in results.")
 
     review_flags = (
-        _review_flags(reference_date, exclusion_as_of) if apply_exclusions else None
+        _review_flags(reference_date, exclusion_as_of)
+        if reference_date is not None
+        else None
     )
     if review_flags is not None:
         review_flags = review_flags.with_columns(

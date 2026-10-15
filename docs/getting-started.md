@@ -73,8 +73,8 @@ Exclusions apply across diseases for each location and observation date.
 US flags use the US review; state exclusions do not change national counts.
 The default return type is still lazy; pass `lazy=False` for a DataFrame.
 
-Without `as_of`, the latest NSSP vintage is resolved and its calendar date selects the corresponding review in the snapshot.
-To select a particular review date:
+The latest `report_date` in the loaded NSSP data selects the corresponding review in the snapshot, before applying observation filters.
+Use `as_of` to select a historical NSSP vintage:
 
 ```python
 import datetime as dt
@@ -91,7 +91,7 @@ visits = get_nssp(
 )
 ```
 
-An explicit `as_of` selects that review date even if the available NSSP vintage is older.
+If the selected NSSP vintage is older than `as_of`, its latest `report_date` still determines the review date.
 `exclusion_as_of` independently selects the newest published exclusions snapshot at or before its cutoff, using the same convention as the library's other `as_of` arguments.
 A date denotes midnight at the start of that day; a datetime preserves the time of day, and the cutoff is inclusive.
 Omitting `exclusion_as_of` selects the latest snapshot, even when `as_of` selects a historical NSSP vintage and review date.

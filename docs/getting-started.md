@@ -104,7 +104,7 @@ If the snapshot lacks the requested review date, the function warns and returns 
 Missing location reviews and observation dates absent from the exclusion lists receive `exclude=False`.
 Empty exclusion lists also produce false flags.
 Review rows for locations absent from the result are allowed.
-Malformed reviews for the requested date raise an error; other review dates are not validated.
+The snapshot's column names and types are checked before selecting the requested review date.
 
 `get_nssp_with_exclusion()` and its manual and computed tail strategies have been removed.
 Use the opt-in flags above; callers decide whether to filter flagged rows.

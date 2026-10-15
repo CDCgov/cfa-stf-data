@@ -553,42 +553,9 @@ def test_reviewed_empty_lists_do_not_warn(exclusion_catalog, recwarn):
             lambda f: f.with_columns(pl.col("excluded_dates").cast(pl.List(pl.String))),
             "schema",
         ),
-        (lambda f: pl.concat([f, f.head(1)]), "duplicate scopes"),
-        (
-            lambda f: f.with_columns(pl.lit(None, dtype=pl.String).alias("state_abb")),
-            "null values",
-        ),
-        (
-            lambda f: f.with_columns(
-                pl.lit(None, dtype=pl.List(pl.Date)).alias("excluded_dates")
-            ),
-            "null values",
-        ),
-        (
-            lambda f: f.with_columns(
-                pl.lit([None], dtype=pl.List(pl.Date)).alias("excluded_dates")
-            ),
-            "null dates",
-        ),
-        (
-            lambda f: f.with_columns(
-                pl.lit([REVIEW_DATE, REVIEW_DATE], dtype=pl.List(pl.Date)).alias(
-                    "excluded_dates"
-                )
-            ),
-            "sorted, unique",
-        ),
-        (
-            lambda f: f.with_columns(
-                pl.lit(
-                    [REVIEW_DATE, dt.date(2024, 1, 1)], dtype=pl.List(pl.Date)
-                ).alias("excluded_dates")
-            ),
-            "sorted, unique",
-        ),
     ],
 )
-def test_malformed_requested_review_rejected(exclusion_catalog, malformation, match):
+def test_malformed_snapshot_schema_rejected(exclusion_catalog, malformation, match):
     exclusion_catalog.frame = malformation(exclusion_catalog.frame)
     with pytest.raises(ValueError, match=match):
         reviewed_nssp(state_abb="CA")

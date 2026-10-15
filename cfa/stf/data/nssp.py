@@ -151,7 +151,7 @@ def get_nssp(
         corresponding incident ED-visit count.
         ``exclude`` is always a non-null Boolean column. Flags are False when
         exclusions are disabled or missing. A missing snapshot or review date
-        emits a warning; malformed reviews raise ValueError.
+        emits a warning; an incompatible snapshot schema raises ValueError.
 
     Notes
     -----

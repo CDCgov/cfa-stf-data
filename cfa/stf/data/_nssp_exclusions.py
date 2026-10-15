@@ -62,25 +62,6 @@ def _review_flags(
             f"NSSP exclusion snapshot {version!r} has no review for "
             f"reference date {reference_date}; returning exclude=False.",
         )
-    else:
-        if any(review.null_count().row(0)):
-            raise ValueError(f"NSSP review {reference_date} contains null values")
-        if review.get_column("state_abb").is_duplicated().any():
-            raise ValueError(f"NSSP review {reference_date} contains duplicate scopes")
-        dates = pl.col("excluded_dates")
-        if review.select(
-            dates.list.eval(pl.element().is_null()).list.any().any()
-        ).item():
-            raise ValueError(f"NSSP review {reference_date} contains null dates")
-        if review.select(
-            (
-                (dates.list.n_unique() != dates.list.len())
-                | (dates != dates.list.sort())
-            ).any()
-        ).item():
-            raise ValueError(
-                f"NSSP review {reference_date} must contain sorted, unique dates"
-            )
 
     return (
         review.select("state_abb", "excluded_dates")

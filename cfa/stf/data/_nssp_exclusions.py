@@ -6,6 +6,8 @@ import warnings
 import polars as pl
 from cfa.dataops import datacat
 
+from ._utils import _version_spec, _version_to_datetime
+
 _SCHEMA = {
     "reference_date": pl.Date,
     "state_abb": pl.String,
@@ -13,41 +15,41 @@ _SCHEMA = {
 }
 
 
-def resolve_nssp_exclusion_version(exclusion_version: str | None = None) -> str:
-    """Resolve an exact published NSSP data-review snapshot version.
+def resolve_nssp_exclusion_version(
+    as_of: dt.date | None = None,
+) -> dt.datetime | str | None:
+    """Resolve the data-review snapshot that ``get_nssp`` would load.
 
     Parameters
     ----------
-    exclusion_version
-        An opaque exact catalog version, or None to select the newest published
-        snapshot. Published snapshot identifiers sort chronologically.
+    as_of
+        The latest catalog version date to consider, corresponding to
+        ``get_nssp(exclusion_as_of=...)``. If None, resolves the most recent
+        available version.
 
     Returns
     -------
-    str
-        The unchanged version identifier, suitable for recording and passing to
-        ``get_nssp(exclusion_version=..., apply_data_review_exclusions=True)``.
-
-    Raises
-    ------
-    ValueError
-        If no snapshot exists or the supplied exact version is unavailable.
+    datetime.datetime | str | None
+        The selected catalog version converted to a datetime when possible,
+        or None if no version matches.
     """
-    versions = datacat.public.stf.nssp_exclusions.load.get_versions()
-    if exclusion_version is not None:
-        if exclusion_version not in versions:
-            raise ValueError(f"NSSP exclusion version not found: {exclusion_version!r}")
-        return exclusion_version
-    if not versions:
-        raise ValueError("No published NSSP exclusion snapshots are available")
-    return max(versions)
+    version = datacat.public.stf.nssp_exclusions.load.resolve_version(
+        version_spec=_version_spec(as_of)
+    ).version
+    return _version_to_datetime(version)
 
 
 def _review_flags(
-    reference_date: dt.date, exclusion_version: str | None
+    reference_date: dt.date, exclusion_as_of: dt.date | None
 ) -> pl.DataFrame:
-    version = resolve_nssp_exclusion_version(exclusion_version)
     endpoint = datacat.public.stf.nssp_exclusions.load
+    version = endpoint.resolve_version(
+        version_spec=_version_spec(exclusion_as_of)
+    ).version
+    if version is None:
+        raise ValueError(
+            f"No published NSSP exclusion snapshot matches exclusion_as_of={exclusion_as_of!r}"
+        )
     frame = endpoint.get_dataframe(output="polars", version_spec=version)
     if dict(frame.schema) != _SCHEMA:
         raise ValueError(f"NSSP exclusion snapshot must have schema {_SCHEMA}")

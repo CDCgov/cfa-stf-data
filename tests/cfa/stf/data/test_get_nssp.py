@@ -3,6 +3,7 @@ from types import SimpleNamespace
 
 import polars as pl
 import pytest
+from cfa.dataops.utils import version_matcher
 from polars.testing import assert_frame_equal
 
 import cfa.stf.data.nssp as nssp
@@ -311,12 +312,12 @@ def exclusion_catalog(monkeypatch, reviewed_exclusions):
         frame=reviewed_exclusions,
         versions=["2024-01-14T12-00-00", "2024-01-15T12-00-00"],
         loads=[],
-        listings=[],
+        resolutions=[],
     )
 
-    def get_versions():
-        state.listings.append(True)
-        return state.versions
+    def resolve_version(*, version_spec):
+        state.resolutions.append(version_spec)
+        return SimpleNamespace(version=version_matcher(version_spec, state.versions))
 
     def get_dataframe(*, output, version_spec):
         assert output == "polars"
@@ -324,7 +325,7 @@ def exclusion_catalog(monkeypatch, reviewed_exclusions):
         return state.frame
 
     endpoint = nssp.datacat.public.stf.nssp_exclusions.load
-    monkeypatch.setattr(endpoint, "get_versions", get_versions)
+    monkeypatch.setattr(endpoint, "resolve_version", resolve_version)
     monkeypatch.setattr(endpoint, "get_dataframe", get_dataframe)
     return state
 
@@ -341,17 +342,17 @@ def test_disabled_exclusions_do_not_access_catalog(exclusion_catalog):
     explicit = nssp.get_nssp(lazy=False, apply_data_review_exclusions=False)
     assert_frame_equal(default, explicit)
     assert "exclude" not in default.columns
-    assert exclusion_catalog.listings == exclusion_catalog.loads == []
+    assert exclusion_catalog.resolutions == exclusion_catalog.loads == []
 
 
-def test_exclusion_version_requires_opt_in(monkeypatch, exclusion_catalog):
+def test_exclusion_as_of_requires_opt_in(monkeypatch, exclusion_catalog):
     def unexpected_load(*args, **kwargs):
         pytest.fail("Invalid options must fail before loading NSSP")
 
     monkeypatch.setattr(nssp, "_get_nssp_dataset", unexpected_load)
     with pytest.raises(ValueError, match="requires apply_data_review_exclusions"):
-        nssp.get_nssp(exclusion_version="anything")
-    assert exclusion_catalog.listings == exclusion_catalog.loads == []
+        nssp.get_nssp(exclusion_as_of=dt.date(2024, 1, 15))
+    assert exclusion_catalog.resolutions == exclusion_catalog.loads == []
 
 
 @pytest.mark.parametrize("dataset", ["gold", "comprehensive"])
@@ -402,30 +403,52 @@ def test_review_with_date_filters(exclusion_catalog, empty):
 
 
 @pytest.mark.parametrize(
-    "version",
-    ["2024-01-14T12-00-00", "2024-01-15T12-00-00"],
+    "cutoff,spec,expected",
+    [
+        (None, "<=9999-12-31T00-00-00", "2024-01-15T12-00-00"),
+        (dt.date(2024, 1, 15), "<=2024-01-15T00-00-00", "2024-01-14T12-00-00"),
+        (dt.date(2024, 1, 16), "<=2024-01-16T00-00-00", "2024-01-15T12-00-00"),
+        (
+            dt.datetime(2024, 1, 15, 11, 59, 59),
+            "<=2024-01-15T11-59-59",
+            "2024-01-14T12-00-00",
+        ),
+        (dt.datetime(2024, 1, 15, 12), "<=2024-01-15T12-00-00", "2024-01-15T12-00-00"),
+    ],
 )
-def test_exact_exclusion_version_round_trip(exclusion_catalog, version):
-    exclusion_catalog.versions.append(version)
-    resolved = resolve_nssp_exclusion_version(version)
-    assert resolved == version
-    reviewed_nssp(exclusion_version=resolved)
-    assert exclusion_catalog.loads == [version]
+def test_exclusion_as_of_selects_latest_at_cutoff(
+    exclusion_catalog, cutoff, spec, expected
+):
+    resolved = resolve_nssp_exclusion_version(as_of=cutoff)
+    assert resolved == dt.datetime.strptime(expected, "%Y-%m-%dT%H-%M-%S")
+    result = reviewed_nssp(exclusion_as_of=cutoff)
+    assert result["exclude"].any()
+    assert exclusion_catalog.resolutions == [spec, spec]
+    assert exclusion_catalog.loads == [expected]
 
 
-def test_exclusion_resolver_preserves_opaque_version(exclusion_catalog):
+def test_exclusion_resolver_preserves_unparsable_version(
+    monkeypatch, exclusion_catalog
+):
     version = "release-review-final"
-    exclusion_catalog.versions.append(version)
-    assert resolve_nssp_exclusion_version(version) == version
+    monkeypatch.setattr(
+        nssp.datacat.public.stf.nssp_exclusions.load,
+        "resolve_version",
+        lambda **_: SimpleNamespace(version=version),
+    )
+    assert resolve_nssp_exclusion_version() == version
     assert exclusion_catalog.loads == []
 
 
-def test_exclusion_version_failures(exclusion_catalog):
-    with pytest.raises(ValueError, match="not found"):
-        reviewed_nssp(exclusion_version=">=2024-01-14")
-    exclusion_catalog.versions = []
+@pytest.mark.parametrize("empty_catalog", [False, True])
+def test_no_exclusions_match_cutoff(exclusion_catalog, empty_catalog):
+    cutoff = dt.date(2024, 1, 14)
+    if empty_catalog:
+        exclusion_catalog.versions = []
+        cutoff = None
+    assert resolve_nssp_exclusion_version(as_of=cutoff) is None
     with pytest.raises(ValueError, match="No published"):
-        reviewed_nssp()
+        reviewed_nssp(exclusion_as_of=cutoff)
     assert exclusion_catalog.loads == []
 
 

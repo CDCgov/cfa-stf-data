@@ -70,7 +70,7 @@ def get_nssp(
     end_date: dt.date | None = None,
     lazy: Literal[True] = ...,
     apply_data_review_exclusions: bool = False,
-    exclusion_version: str | None = None,
+    exclusion_as_of: dt.date | None = None,
 ) -> pl.LazyFrame: ...
 
 
@@ -84,7 +84,7 @@ def get_nssp(
     end_date: dt.date | None = None,
     lazy: Literal[False] = ...,
     apply_data_review_exclusions: bool = False,
-    exclusion_version: str | None = None,
+    exclusion_as_of: dt.date | None = None,
 ) -> pl.DataFrame: ...
 
 
@@ -97,7 +97,7 @@ def get_nssp(
     end_date: dt.date | None = None,
     lazy: bool = True,
     apply_data_review_exclusions: bool = False,
-    exclusion_version: str | None = None,
+    exclusion_as_of: dt.date | None = None,
 ) -> pl.DataFrame | pl.LazyFrame:
     """
     Retrieve and filter NSSP emergency department data.
@@ -133,10 +133,14 @@ def get_nssp(
         without removing observations. Defaults to False. Reviews apply to all
         diseases at a location. An explicit ``as_of`` selects the review date;
         otherwise the date of the latest NSSP catalog vintage is used.
-    exclusion_version
-        Exact, opaque data-review version to load, or None for the newest
-        published snapshot. Requires ``apply_data_review_exclusions=True``.
-        Use ``resolve_nssp_exclusion_version`` to record and reuse this version.
+    exclusion_as_of
+        The latest catalog version date to consider for the data-review
+        snapshot, or None for the newest available snapshot. Uses the same
+        inclusive cutoff convention as ``as_of``, independently of the NSSP
+        vintage and review reference date. Requires
+        ``apply_data_review_exclusions=True``. Use
+        ``resolve_nssp_exclusion_version(as_of=exclusion_as_of)`` to record the
+        selected version.
 
     Returns
     -------
@@ -156,8 +160,8 @@ def get_nssp(
       "flu", and "rsv".
     - The function only includes data from parquet files with dates up to and including the as_of date.
     """
-    if exclusion_version is not None and not apply_data_review_exclusions:
-        raise ValueError("exclusion_version requires apply_data_review_exclusions=True")
+    if exclusion_as_of is not None and not apply_data_review_exclusions:
+        raise ValueError("exclusion_as_of requires apply_data_review_exclusions=True")
 
     state_abb = ensure_list(state_abb)
     get_all_locs = not state_abb
@@ -181,7 +185,7 @@ def get_nssp(
                 )
             reference_date = parsed_version.date()
             version_spec = version
-        review_flags = _review_flags(reference_date, exclusion_version)
+        review_flags = _review_flags(reference_date, exclusion_as_of)
 
     national_required = get_all_locs or "US" in state_abb
 

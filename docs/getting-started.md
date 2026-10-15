@@ -58,14 +58,12 @@ For NSSP data, `target_type` is `"inc ed visits"`.
 ## Apply published data-review exclusions
 
 ```python
-from cfa.stf.data import get_nssp, resolve_nssp_exclusion_version
+from cfa.stf.data import get_nssp
 
-exclusion_version = resolve_nssp_exclusion_version()
 visits = get_nssp(
     disease="flu",
     state_abb="CA",
     apply_data_review_exclusions=True,
-    exclusion_version=exclusion_version,
 )
 ```
 
@@ -80,17 +78,25 @@ To select a particular review date:
 ```python
 import datetime as dt
 
+from cfa.stf.data import resolve_nssp_exclusion_version
+
+exclusion_as_of = dt.date(2026, 10, 2)
+selected_version = resolve_nssp_exclusion_version(as_of=exclusion_as_of)
 visits = get_nssp(
     as_of=dt.date(2026, 10, 1),
     apply_data_review_exclusions=True,
-    exclusion_version=exclusion_version,
+    exclusion_as_of=exclusion_as_of,
     lazy=False,
 )
 ```
 
 An explicit `as_of` selects that review date even if the available NSSP vintage is older.
-Omitting `exclusion_version` uses the newest published exclusions snapshot, independently of `as_of`.
-Record the exact string returned by `resolve_nssp_exclusion_version()` and supply it on subsequent calls to reload the same exclusions snapshot.
+`exclusion_as_of` independently selects the newest published exclusions snapshot at or before its cutoff, using the same convention as the library's other `as_of` arguments.
+A date denotes midnight at the start of that day; a datetime preserves the time of day, and the cutoff is inclusive.
+Omitting `exclusion_as_of` selects the latest snapshot, even when `as_of` selects a historical NSSP vintage and review date.
+Use `resolve_nssp_exclusion_version(as_of=exclusion_as_of)` to record the selected snapshot version.
+Like the other version resolvers, it returns a datetime when possible, otherwise the version string, or `None` if no version matches.
+Loading exclusions raises an error if no snapshot matches the cutoff.
 Record the NSSP vintage separately for reproducibility.
 
 If the snapshot lacks the requested review date, the function warns and returns `exclude=False` for every observation.

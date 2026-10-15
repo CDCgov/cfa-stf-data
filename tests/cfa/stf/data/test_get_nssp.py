@@ -333,13 +333,13 @@ def exclusion_catalog(monkeypatch, reviewed_exclusions):
 def reviewed_nssp(**kwargs):
     return nssp.get_nssp(
         **({"as_of": REVIEW_DATE, "lazy": False} | kwargs),
-        apply_data_review_exclusions=True,
+        apply_exclusions=True,
     )
 
 
 def test_disabled_exclusions_do_not_access_catalog(exclusion_catalog):
     default = nssp.get_nssp(lazy=False)
-    explicit = nssp.get_nssp(lazy=False, apply_data_review_exclusions=False)
+    explicit = nssp.get_nssp(lazy=False, apply_exclusions=False)
     assert_frame_equal(default, explicit)
     assert "exclude" not in default.columns
     assert exclusion_catalog.resolutions == exclusion_catalog.loads == []
@@ -350,7 +350,7 @@ def test_exclusion_as_of_requires_opt_in(monkeypatch, exclusion_catalog):
         pytest.fail("Invalid options must fail before loading NSSP")
 
     monkeypatch.setattr(nssp, "_get_nssp_dataset", unexpected_load)
-    with pytest.raises(ValueError, match="requires apply_data_review_exclusions"):
+    with pytest.raises(ValueError, match="requires apply_exclusions"):
         nssp.get_nssp(exclusion_as_of=dt.date(2024, 1, 15))
     assert exclusion_catalog.resolutions == exclusion_catalog.loads == []
 

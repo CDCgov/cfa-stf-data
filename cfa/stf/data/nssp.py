@@ -147,7 +147,8 @@ def get_nssp(
         corresponding incident ED-visit count.
         When review exclusions are enabled, a non-null Boolean ``exclude``
         column is appended. A missing review date emits a warning and sets all
-        flags to False; malformed reviews raise ValueError.
+        flags to False; malformed reviews or missing review rows for locations
+        present in the filtered NSSP result raise ValueError.
 
     Notes
     -----
@@ -249,8 +250,26 @@ def get_nssp(
         review_flags = review_flags.with_columns(
             pl.col("state_abb").cast(result.collect_schema()["state_abb"])
         )
+        if not review_flags.is_empty():
+            missing_review_locs = (
+                result.select("state_abb")
+                .unique()
+                .join(
+                    review_flags.lazy().select("state_abb").unique(),
+                    on="state_abb",
+                    how="anti",
+                )
+                .collect()
+                .get_column("state_abb")
+                .to_list()
+            )
+            if missing_review_locs:
+                raise ValueError(
+                    f"NSSP review {reference_date} is missing locations present "
+                    f"in the NSSP result: {sorted(missing_review_locs)}"
+                )
         result = result.join(
-            review_flags.lazy(),
+            review_flags.drop_nulls("date").lazy(),
             on=["state_abb", "date"],
             how="left",
             validate="m:1",

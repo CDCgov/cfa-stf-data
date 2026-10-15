@@ -11,11 +11,6 @@ _SCHEMA = {
     "state_abb": pl.String,
     "excluded_dates": pl.List(pl.Date),
 }
-_LOCATIONS = frozenset(
-    "AK AL AR AZ CA CO CT DC DE FL GA HI IA ID IL IN KS KY LA MA MD ME MI MN "
-    "MO MS MT NC ND NE NH NJ NM NV NY OH OK OR PA RI SC SD TN TX US UT VA "
-    "VT WA WI WV WY".split()
-)
 
 
 def resolve_nssp_exclusion_version(exclusion_version: str | None = None) -> str:
@@ -69,13 +64,6 @@ def _review_flags(
             raise ValueError(f"NSSP review {reference_date} contains null values")
         if review.get_column("state_abb").is_duplicated().any():
             raise ValueError(f"NSSP review {reference_date} contains duplicate scopes")
-        locations = set(review.get_column("state_abb"))
-        if locations != _LOCATIONS:
-            raise ValueError(
-                f"NSSP review {reference_date} has incomplete location coverage; "
-                f"missing={sorted(_LOCATIONS - locations)}, "
-                f"unexpected={sorted(locations - _LOCATIONS)}"
-            )
         dates = pl.col("excluded_dates")
         if review.select(
             dates.list.eval(pl.element().is_null()).list.any().any()
@@ -93,8 +81,9 @@ def _review_flags(
 
     return (
         review.select("state_abb", "excluded_dates")
-        .explode("excluded_dates", empty_as_null=False)
-        .drop_nulls("excluded_dates")
+        # Keep reviewed locations with empty lists for coverage validation at
+        # the NSSP join. Only an absent reference date produces an empty frame.
+        .explode("excluded_dates", empty_as_null=True)
         .rename({"excluded_dates": "date"})
         .with_columns(pl.lit(True).alias("exclude"))
     )

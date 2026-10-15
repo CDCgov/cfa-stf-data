@@ -94,9 +94,10 @@ Record the exact string returned by `resolve_nssp_exclusion_version()` and suppl
 Record the NSSP vintage separately for reproducibility.
 
 If the snapshot lacks the requested review date, the function warns and returns `exclude=False` for every observation.
-A represented review must cover all 50 states, DC, and US, even for a query requesting a single location.
+A represented review must contain a row for every location in the filtered NSSP result.
+An empty exclusion list counts as reviewed; a missing location row raises an error.
+Review rows for locations absent from the result are allowed.
 Malformed reviews for the requested date raise an error; other review dates are not validated.
-Locations outside that supported set receive `exclude=False`.
 
 `get_nssp_with_exclusion()` and its manual and computed tail strategies have been removed.
 Use the opt-in flags above; callers decide whether to filter flagged rows.

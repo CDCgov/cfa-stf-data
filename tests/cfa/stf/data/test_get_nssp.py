@@ -283,22 +283,17 @@ def test_catalog_resolve_nssp_version(dataset) -> None:
 
 
 REVIEW_DATE = dt.date(2024, 1, 14)
-REVIEW_LOCATIONS = (
-    "AL AK AZ AR CA CO CT DE DC FL GA HI ID IL IN IA KS KY LA ME MD MA MI MN "
-    "MS MO MT NE NV NH NJ NM NY NC ND OH OK OR PA RI SC SD TN TX UT VT VA "
-    "WA WV WI WY US"
-).split()
 
 
 @pytest.fixture
-def reviewed_exclusions() -> pl.DataFrame:
+def reviewed_exclusions(nssp_data) -> pl.DataFrame:
+    locations = sorted(set(nssp_data.get_column("geo_value")) | {"US"})
     return pl.DataFrame(
         {
-            "reference_date": [REVIEW_DATE] * len(REVIEW_LOCATIONS),
-            "state_abb": REVIEW_LOCATIONS,
+            "reference_date": [REVIEW_DATE] * len(locations),
+            "state_abb": locations,
             "excluded_dates": [
-                [dt.date(2024, 1, 13)] if loc == "CA" else []
-                for loc in REVIEW_LOCATIONS
+                [dt.date(2024, 1, 13)] if loc == "CA" else [] for loc in locations
             ],
         },
         schema={
@@ -503,11 +498,6 @@ def test_reviewed_empty_lists_do_not_warn(exclusion_catalog, recwarn):
             lambda f: f.with_columns(pl.col("excluded_dates").cast(pl.List(pl.String))),
             "schema",
         ),
-        (lambda f: f.filter(pl.col("state_abb") != "AK"), "coverage"),
-        (
-            lambda f: f.with_columns(pl.col("state_abb").replace({"AK": "ZZ"})),
-            "coverage",
-        ),
         (lambda f: pl.concat([f, f.head(1)]), "duplicate scopes"),
         (
             lambda f: f.with_columns(pl.lit(None, dtype=pl.String).alias("state_abb")),
@@ -570,13 +560,52 @@ def test_catalog_errors_propagate(monkeypatch, exclusion_catalog):
         reviewed_nssp()
 
 
-def test_unsupported_nssp_location_is_not_excluded(
-    monkeypatch, exclusion_catalog, nssp_data
+@pytest.mark.parametrize("reviewed", [False, True])
+def test_arbitrary_nssp_location_requires_review(
+    monkeypatch, exclusion_catalog, nssp_data, reviewed
 ):
     data = nssp_data.with_columns(pl.lit("PR").alias("geo_value"))
     monkeypatch.setattr(
         nssp._get_nssp_dataset("gold").load, "get_dataframe", lazy_catalog_loader(data)
     )
-    result = reviewed_nssp(state_abb="PR")
-    assert result.height > 0
-    assert not result["exclude"].any()
+    if reviewed:
+        exclusion_catalog.frame = exclusion_catalog.frame.with_columns(
+            pl.col("state_abb").replace({"CA": "PR"})
+        )
+        result = reviewed_nssp(state_abb="PR")
+        assert result.height > 0
+        assert result["exclude"].any()
+    else:
+        with pytest.raises(ValueError, match="missing locations.*PR"):
+            reviewed_nssp(state_abb="PR")
+
+
+@pytest.mark.parametrize("lazy", [False, True])
+@pytest.mark.parametrize("state_abb", [None, "CA", ["CA", "US"]])
+def test_missing_result_location_review_rejected(exclusion_catalog, lazy, state_abb):
+    exclusion_catalog.frame = exclusion_catalog.frame.filter(
+        pl.col("state_abb") != "CA"
+    )
+    with pytest.raises(ValueError, match="missing locations.*CA"):
+        reviewed_nssp(state_abb=state_abb, lazy=lazy)
+
+
+def test_only_result_locations_require_review(exclusion_catalog):
+    exclusion_catalog.frame = exclusion_catalog.frame.filter(
+        pl.col("state_abb") == "CA"
+    )
+    assert reviewed_nssp(state_abb="CA")["exclude"].any()
+    # Date filtering removes all observations, so no location coverage is needed.
+    assert reviewed_nssp(start_date=dt.date(2025, 1, 1)).is_empty()
+    # AK has no observations after this date and therefore needs no review row.
+    with pytest.warns(UserWarning, match="Requested locations.*AK.*not found"):
+        result = reviewed_nssp(state_abb=["AK", "CA"], start_date=dt.date(2024, 1, 13))
+    assert result["exclude"].all()
+
+
+def test_review_locations_absent_from_nssp_are_allowed(exclusion_catalog):
+    extra = exclusion_catalog.frame.head(1).with_columns(
+        pl.lit("ZZ").alias("state_abb")
+    )
+    exclusion_catalog.frame = pl.concat([exclusion_catalog.frame, extra])
+    assert reviewed_nssp()["exclude"].any()

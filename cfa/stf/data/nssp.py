@@ -170,21 +170,18 @@ def get_nssp(
 
     datacat_dataset = _get_nssp_dataset(dataset)
     version_spec = _version_spec(as_of)
-    review_flags = None
-    if apply_exclusions:
-        reference_date = as_of
-        if reference_date is None:
-            version = datacat_dataset.load.resolve_version(
-                version_spec=version_spec
-            ).version
-            parsed_version = _version_to_datetime(version)
-            if not isinstance(parsed_version, dt.datetime):
-                raise ValueError(
-                    f"Cannot determine the latest NSSP vintage date from {version!r}"
-                )
-            reference_date = parsed_version.date()
-            version_spec = version
-        review_flags = _review_flags(reference_date, exclusion_as_of)
+    reference_date = as_of
+    if apply_exclusions and as_of is None:
+        # Pin the data load and review date to the same latest vintage.
+        version_spec = datacat_dataset.load.resolve_version(
+            version_spec=version_spec
+        ).version
+        resolved_version = _version_to_datetime(version_spec)
+        if not isinstance(resolved_version, dt.datetime):
+            raise ValueError(
+                f"Cannot determine the latest NSSP vintage date from {version_spec!r}"
+            )
+        reference_date = resolved_version.date()
 
     national_required = get_all_locs or "US" in state_abb
 
@@ -249,6 +246,9 @@ def get_nssp(
         if missing_locs := set(state_abb) - set(result_loc_abbr):
             warnings.warn(f"Requested locations {missing_locs} not found in results.")
 
+    review_flags = (
+        _review_flags(reference_date, exclusion_as_of) if apply_exclusions else None
+    )
     if review_flags is not None:
         review_flags = review_flags.with_columns(
             pl.col("state_abb").cast(result.collect_schema()["state_abb"])

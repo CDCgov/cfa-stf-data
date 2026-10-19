@@ -137,7 +137,7 @@ def get_nssp(
         The latest catalog version date to consider for the data-review
         snapshot, or None for the newest available snapshot. Uses the same
         inclusive cutoff convention as ``as_of``, independently of the NSSP
-        vintage and review reference date. Requires
+        vintage and review report date. Requires
         ``apply_exclusions=True``. Use
         ``resolve_nssp_exclusion_version(as_of=exclusion_as_of)`` to record the
         selected version.
@@ -172,7 +172,7 @@ def get_nssp(
     dat = datacat_dataset.load.get_dataframe(
         output="pl_lazy", version_spec=_version_spec(as_of)
     )
-    reference_date = (
+    report_date = (
         dat.select(pl.col("report_date").max()).collect().item()
         if apply_exclusions
         else None
@@ -238,9 +238,7 @@ def get_nssp(
             warnings.warn(f"Requested locations {missing_locs} not found in results.")
 
     review_flags = (
-        _review_flags(reference_date, exclusion_as_of)
-        if reference_date is not None
-        else None
+        _review_flags(report_date, exclusion_as_of) if report_date is not None else None
     )
     if review_flags is not None:
         review_flags = review_flags.with_columns(

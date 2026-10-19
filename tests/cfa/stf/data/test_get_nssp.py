@@ -308,14 +308,14 @@ def reviewed_exclusions(nssp_data) -> pl.DataFrame:
     locations = sorted(set(nssp_data.get_column("geo_value")) | {"US"})
     return pl.DataFrame(
         {
-            "reference_date": [REVIEW_DATE] * len(locations),
+            "report_date": [REVIEW_DATE] * len(locations),
             "state_abb": locations,
             "excluded_dates": [
                 [dt.date(2024, 1, 13)] if loc == "CA" else [] for loc in locations
             ],
         },
         schema={
-            "reference_date": pl.Date,
+            "report_date": pl.Date,
             "state_abb": pl.String,
             "excluded_dates": pl.List(pl.Date),
         },
@@ -546,7 +546,7 @@ def test_missing_review_warns_and_flags_false(exclusion_catalog, empty_snapshot)
         exclusion_catalog.frame = exclusion_catalog.frame.clear()
     else:
         exclusion_catalog.frame = exclusion_catalog.frame.with_columns(
-            pl.lit(dt.date(2024, 1, 16)).alias("reference_date")
+            pl.lit(dt.date(2024, 1, 16)).alias("report_date")
         )
     with pytest.warns(UserWarning, match="2024-01-15T12-00-00.*2024-01-14"):
         result = reviewed_nssp()
@@ -566,7 +566,7 @@ def test_reviewed_empty_lists_do_not_warn(exclusion_catalog, recwarn):
     [
         (lambda f: f.drop("excluded_dates"), "schema"),
         (lambda f: f.with_columns(extra=pl.lit(1)), "schema"),
-        (lambda f: f.with_columns(pl.col("reference_date").cast(pl.String)), "schema"),
+        (lambda f: f.with_columns(pl.col("report_date").cast(pl.String)), "schema"),
         (
             lambda f: f.with_columns(pl.col("excluded_dates").cast(pl.List(pl.String))),
             "schema",
@@ -581,7 +581,7 @@ def test_malformed_snapshot_schema_rejected(exclusion_catalog, malformation, mat
 
 def test_unrelated_malformed_review_is_ignored(exclusion_catalog):
     malformed = exclusion_catalog.frame.head(1).with_columns(
-        reference_date=pl.lit(dt.date(2024, 1, 1)),
+        report_date=pl.lit(dt.date(2024, 1, 1)),
         state_abb=pl.lit(None, dtype=pl.String),
         excluded_dates=pl.lit([None], dtype=pl.List(pl.Date)),
     )

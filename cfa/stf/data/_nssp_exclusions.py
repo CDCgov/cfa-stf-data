@@ -9,7 +9,7 @@ from cfa.dataops import datacat
 from ._utils import _version_spec, _version_to_datetime
 
 _SCHEMA = {
-    "reference_date": pl.Date,
+    "report_date": pl.Date,
     "state_abb": pl.String,
     "excluded_dates": pl.List(pl.Date),
 }
@@ -40,7 +40,7 @@ def resolve_nssp_exclusion_version(
 
 
 def _review_flags(
-    reference_date: dt.date, exclusion_as_of: dt.date | None
+    report_date: dt.date, exclusion_as_of: dt.date | None
 ) -> pl.DataFrame | None:
     endpoint = datacat.public.stf.nssp_exclusions.load
     version = endpoint.resolve_version(
@@ -56,11 +56,11 @@ def _review_flags(
     if dict(frame.schema) != _SCHEMA:
         raise ValueError(f"NSSP exclusion snapshot must have schema {_SCHEMA}")
 
-    review = frame.filter(pl.col("reference_date") == reference_date)
+    review = frame.filter(pl.col("report_date") == report_date)
     if review.is_empty():
         warnings.warn(
             f"NSSP exclusion snapshot {version!r} has no review for "
-            f"reference date {reference_date}; returning exclude=False.",
+            f"report date {report_date}; returning exclude=False.",
         )
 
     return (

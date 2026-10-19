@@ -74,6 +74,7 @@ US flags use the US review; state exclusions do not change national counts.
 The default return type is still lazy; pass `lazy=False` for a DataFrame.
 
 The latest `report_date` in the loaded NSSP data selects the corresponding review in the snapshot, before applying observation filters.
+Exclusions snapshots contain `report_date: Date`, `state_abb: String`, and `excluded_dates: List[Date]`.
 Use `as_of` to select a historical NSSP vintage:
 
 ```python

@@ -106,8 +106,7 @@ Empty exclusion lists also produce false flags.
 Review rows for locations absent from the result are allowed.
 The snapshot's column names and types are checked before selecting the requested review date.
 
-`get_nssp_with_exclusion()` and its manual and computed tail strategies have been removed.
-Use the opt-in flags above; callers decide whether to filter flagged rows.
+Callers decide whether to filter flagged rows.
 See the [NSSP API reference](api/nssp.md).
 
 ## Preview the documentation

@@ -238,7 +238,9 @@ def get_nssp(
             warnings.warn(f"Requested locations {missing_locs} not found in results.")
 
     review_flags = (
-        _review_flags(report_date, exclusions_as_of) if report_date is not None else None
+        _review_flags(report_date, exclusions_as_of)
+        if report_date is not None
+        else None
     )
     if review_flags is not None:
         review_flags = review_flags.with_columns(

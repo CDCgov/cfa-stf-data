@@ -70,7 +70,7 @@ def get_nssp(
     end_date: dt.date | None = None,
     lazy: Literal[True] = ...,
     get_exclusions: bool = False,
-    exclusion_as_of: dt.date | None = None,
+    exclusions_as_of: dt.date | None = None,
 ) -> pl.LazyFrame: ...
 
 
@@ -84,7 +84,7 @@ def get_nssp(
     end_date: dt.date | None = None,
     lazy: Literal[False] = ...,
     get_exclusions: bool = False,
-    exclusion_as_of: dt.date | None = None,
+    exclusions_as_of: dt.date | None = None,
 ) -> pl.DataFrame: ...
 
 
@@ -97,7 +97,7 @@ def get_nssp(
     end_date: dt.date | None = None,
     lazy: bool = True,
     get_exclusions: bool = False,
-    exclusion_as_of: dt.date | None = None,
+    exclusions_as_of: dt.date | None = None,
 ) -> pl.DataFrame | pl.LazyFrame:
     """
     Retrieve and filter NSSP emergency department data.
@@ -133,13 +133,13 @@ def get_nssp(
         without removing observations. Defaults to False. Reviews apply to all
         diseases at a location. The latest ``report_date`` in the loaded NSSP
         data selects the review date, before applying observation filters.
-    exclusion_as_of
+    exclusions_as_of
         The latest catalog version date to consider for the data-review
         snapshot, or None for the newest available snapshot. Uses the same
         inclusive cutoff convention as ``as_of``, independently of the NSSP
         vintage and review report date. Requires
         ``get_exclusions=True``. Use
-        ``resolve_nssp_exclusion_version(as_of=exclusion_as_of)`` to record the
+        ``resolve_nssp_exclusion_version(as_of=exclusions_as_of)`` to record the
         selected version.
 
     Returns
@@ -159,8 +159,8 @@ def get_nssp(
       "flu", and "rsv".
     - The function only includes data from parquet files with dates up to and including the as_of date.
     """
-    if exclusion_as_of is not None and not get_exclusions:
-        raise ValueError("exclusion_as_of requires get_exclusions=True")
+    if exclusions_as_of is not None and not get_exclusions:
+        raise ValueError("exclusions_as_of requires get_exclusions=True")
 
     state_abb = ensure_list(state_abb)
     get_all_locs = not state_abb
@@ -238,7 +238,7 @@ def get_nssp(
             warnings.warn(f"Requested locations {missing_locs} not found in results.")
 
     review_flags = (
-        _review_flags(report_date, exclusion_as_of) if report_date is not None else None
+        _review_flags(report_date, exclusions_as_of) if report_date is not None else None
     )
     if review_flags is not None:
         review_flags = review_flags.with_columns(

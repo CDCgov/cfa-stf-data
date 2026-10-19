@@ -24,7 +24,7 @@ def resolve_nssp_exclusion_version(
     ----------
     as_of
         The latest catalog version date to consider, corresponding to
-        ``get_nssp(exclusion_as_of=...)``. If None, resolves the most recent
+        ``get_nssp(exclusions_as_of=...)``. If None, resolves the most recent
         available version.
 
     Returns
@@ -40,15 +40,15 @@ def resolve_nssp_exclusion_version(
 
 
 def _review_flags(
-    report_date: dt.date, exclusion_as_of: dt.date | None
+    report_date: dt.date, exclusions_as_of: dt.date | None
 ) -> pl.DataFrame | None:
     endpoint = datacat.public.stf.nssp_exclusions.load
     version = endpoint.resolve_version(
-        version_spec=_version_spec(exclusion_as_of)
+        version_spec=_version_spec(exclusions_as_of)
     ).version
     if version is None:
         warnings.warn(
-            f"No published NSSP exclusion snapshot matches exclusion_as_of={exclusion_as_of!r}; "
+            f"No published NSSP exclusion snapshot matches exclusions_as_of={exclusions_as_of!r}; "
             "returning exclude=False.",
         )
         return None

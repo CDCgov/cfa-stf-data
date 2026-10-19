@@ -358,7 +358,7 @@ def reviewed_nssp(**kwargs):
 def test_review_flags_accept_catalog_schema(exclusion_catalog):
     exclusion_catalog.frame = load_mock_data(output="polars", size=2)
     report_date = exclusion_catalog.frame["report_date"][0]
-    result = nssp._review_flags(report_date=report_date, exclusion_as_of=None)
+    result = nssp._review_flags(report_date=report_date, exclusions_as_of=None)
 
     assert_frame_equal(
         result,
@@ -394,13 +394,13 @@ def test_disabled_exclusions_return_false_without_catalog_access(
     assert exclusion_catalog.resolutions == exclusion_catalog.loads == []
 
 
-def test_exclusion_as_of_requires_opt_in(monkeypatch, exclusion_catalog):
+def test_exclusions_as_of_requires_opt_in(monkeypatch, exclusion_catalog):
     def unexpected_load(*args, **kwargs):
         pytest.fail("Invalid options must fail before loading NSSP")
 
     monkeypatch.setattr(nssp, "_get_nssp_dataset", unexpected_load)
     with pytest.raises(ValueError, match="requires get_exclusions"):
-        nssp.get_nssp(exclusion_as_of=dt.date(2024, 1, 15))
+        nssp.get_nssp(exclusions_as_of=dt.date(2024, 1, 15))
     assert exclusion_catalog.resolutions == exclusion_catalog.loads == []
 
 
@@ -465,12 +465,12 @@ def test_review_with_date_filters(exclusion_catalog, empty):
         (dt.datetime(2024, 1, 15, 12), "<=2024-01-15T12-00-00", "2024-01-15T12-00-00"),
     ],
 )
-def test_exclusion_as_of_selects_latest_at_cutoff(
+def test_exclusions_as_of_selects_latest_at_cutoff(
     exclusion_catalog, cutoff, spec, expected
 ):
     resolved = resolve_nssp_exclusion_version(as_of=cutoff)
     assert resolved == dt.datetime.strptime(expected, "%Y-%m-%dT%H-%M-%S")
-    result = reviewed_nssp(exclusion_as_of=cutoff)
+    result = reviewed_nssp(exclusions_as_of=cutoff)
     assert result["exclude"].any()
     assert exclusion_catalog.resolutions == [spec, spec]
     assert exclusion_catalog.loads == [expected]
@@ -498,7 +498,7 @@ def test_no_exclusions_match_cutoff(exclusion_catalog, empty_catalog, lazy):
         cutoff = None
     assert resolve_nssp_exclusion_version(as_of=cutoff) is None
     with pytest.warns(UserWarning, match="No published.*returning exclude=False"):
-        result = reviewed_nssp(exclusion_as_of=cutoff, lazy=lazy)
+        result = reviewed_nssp(exclusions_as_of=cutoff, lazy=lazy)
     if lazy:
         result = result.collect()
     assert_frame_equal(result, nssp.get_nssp(as_of=REVIEW_DATE, lazy=False))

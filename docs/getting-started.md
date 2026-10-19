@@ -64,7 +64,7 @@ from cfa.stf.data import get_nssp
 visits = get_nssp(
     disease="flu",
     state_abb="CA",
-    apply_exclusions=True,
+    get_exclusions=True,
 )
 ```
 
@@ -86,7 +86,7 @@ exclusion_as_of = dt.date(2026, 10, 2)
 selected_version = resolve_nssp_exclusion_version(as_of=exclusion_as_of)
 visits = get_nssp(
     as_of=dt.date(2026, 10, 1),
-    apply_exclusions=True,
+    get_exclusions=True,
     exclusion_as_of=exclusion_as_of,
     lazy=False,
 )

@@ -69,7 +69,7 @@ def get_nssp(
     start_date: dt.date | None = None,
     end_date: dt.date | None = None,
     lazy: Literal[True] = ...,
-    apply_exclusions: bool = False,
+    get_exclusions: bool = False,
     exclusion_as_of: dt.date | None = None,
 ) -> pl.LazyFrame: ...
 
@@ -83,7 +83,7 @@ def get_nssp(
     start_date: dt.date | None = None,
     end_date: dt.date | None = None,
     lazy: Literal[False] = ...,
-    apply_exclusions: bool = False,
+    get_exclusions: bool = False,
     exclusion_as_of: dt.date | None = None,
 ) -> pl.DataFrame: ...
 
@@ -96,7 +96,7 @@ def get_nssp(
     start_date: dt.date | None = None,
     end_date: dt.date | None = None,
     lazy: bool = True,
-    apply_exclusions: bool = False,
+    get_exclusions: bool = False,
     exclusion_as_of: dt.date | None = None,
 ) -> pl.DataFrame | pl.LazyFrame:
     """
@@ -128,7 +128,7 @@ def get_nssp(
     lazy
         Whether to return a lazy frame (defaults to True). If True, returns a
         `pl.LazyFrame`; if False, returns a `pl.DataFrame`.
-    apply_exclusions
+    get_exclusions
         Add Boolean ``exclude`` flags from a published data-review snapshot,
         without removing observations. Defaults to False. Reviews apply to all
         diseases at a location. The latest ``report_date`` in the loaded NSSP
@@ -138,7 +138,7 @@ def get_nssp(
         snapshot, or None for the newest available snapshot. Uses the same
         inclusive cutoff convention as ``as_of``, independently of the NSSP
         vintage and review report date. Requires
-        ``apply_exclusions=True``. Use
+        ``get_exclusions=True``. Use
         ``resolve_nssp_exclusion_version(as_of=exclusion_as_of)`` to record the
         selected version.
 
@@ -159,8 +159,8 @@ def get_nssp(
       "flu", and "rsv".
     - The function only includes data from parquet files with dates up to and including the as_of date.
     """
-    if exclusion_as_of is not None and not apply_exclusions:
-        raise ValueError("exclusion_as_of requires apply_exclusions=True")
+    if exclusion_as_of is not None and not get_exclusions:
+        raise ValueError("exclusion_as_of requires get_exclusions=True")
 
     state_abb = ensure_list(state_abb)
     get_all_locs = not state_abb
@@ -174,7 +174,7 @@ def get_nssp(
     )
     report_date = (
         dat.select(pl.col("report_date").max()).collect().item()
-        if apply_exclusions
+        if get_exclusions
         else None
     )
 

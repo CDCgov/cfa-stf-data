@@ -534,7 +534,7 @@ wheels = [
 [[package]]
 name = "cfa-catalog-public"
 version = "2026.9.29.0"
-source = { git = "https://github.com/CDCgov/cfa-catalog-pub?rev=main#351b185eccc7c9723d749ed0d375c1d8ac342662" }
+source = { git = "https://github.com/CDCgov/cfa-catalog-pub?rev=main#a71c7551e99163f99726684d3e7a1a5442f6d758" }
 dependencies = [
     { name = "cfa-dataops" },
     { name = "duckdb" },

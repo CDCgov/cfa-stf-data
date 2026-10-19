@@ -3,6 +3,7 @@ from types import SimpleNamespace
 
 import polars as pl
 import pytest
+from cfa.catalog.public.datasets.stf.schemas.nssp_exclusions import load_mock_data
 from cfa.dataops.utils import version_matcher
 from polars.testing import assert_frame_equal
 
@@ -351,6 +352,23 @@ def reviewed_nssp(**kwargs):
     return nssp.get_nssp(
         **({"as_of": REVIEW_DATE, "lazy": False} | kwargs),
         apply_exclusions=True,
+    )
+
+
+def test_review_flags_accept_catalog_schema(exclusion_catalog):
+    exclusion_catalog.frame = load_mock_data(output="polars", size=2)
+    report_date = exclusion_catalog.frame["report_date"][0]
+    result = nssp._review_flags(report_date=report_date, exclusion_as_of=None)
+
+    assert_frame_equal(
+        result,
+        pl.DataFrame(
+            {
+                "state_abb": ["AL"],
+                "date": [report_date - dt.timedelta(days=1)],
+                "exclude": [True],
+            }
+        ),
     )
 
 

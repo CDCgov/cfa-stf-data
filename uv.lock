@@ -533,8 +533,8 @@ wheels = [
 
 [[package]]
 name = "cfa-catalog-public"
-version = "2026.7.6.0"
-source = { git = "https://github.com/CDCgov/cfa-catalog-pub?rev=main#88c6a747d5051f78489a599a752790607c728c5b" }
+version = "2026.9.29.0"
+source = { git = "https://github.com/CDCgov/cfa-catalog-pub?rev=main#a71c7551e99163f99726684d3e7a1a5442f6d758" }
 dependencies = [
     { name = "cfa-dataops" },
     { name = "duckdb" },
@@ -622,8 +622,7 @@ source = { editable = "." }
 dependencies = [
     { name = "cfa-catalog-public" },
     { name = "cfa-dataops" },
-    { name = "numpy" },
-    { name = "polars", extra = ["numpy", "pyarrow"] },
+    { name = "polars", extra = ["pyarrow"] },
 ]
 
 [package.dev-dependencies]
@@ -649,8 +648,7 @@ test = [
 requires-dist = [
     { name = "cfa-catalog-public", git = "https://github.com/CDCgov/cfa-catalog-pub?rev=main" },
     { name = "cfa-dataops", git = "https://github.com/CDCgov/cfa-dataops?rev=main" },
-    { name = "numpy", specifier = ">=2.2" },
-    { name = "polars", extras = ["pyarrow", "numpy"], specifier = ">=1.36" },
+    { name = "polars", extras = ["pyarrow"], specifier = ">=1.36" },
 ]
 
 [package.metadata.requires-dev]
@@ -2922,9 +2920,6 @@ wheels = [
 ]
 
 [package.optional-dependencies]
-numpy = [
-    { name = "numpy" },
-]
 pyarrow = [
     { name = "pyarrow" },
 ]

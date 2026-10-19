@@ -10,8 +10,7 @@ authors = [
 dependencies = [
   "cfa.catalog.public",
   "cfa-dataops>=2026.07.22.0",
-  "numpy>=2.2",
-  "polars[pyarrow,numpy]>=1.36",
+  "polars[pyarrow]>=1.36",
 ]
 
 [project.urls]

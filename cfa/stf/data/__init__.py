@@ -1,3 +1,4 @@
+from ._nssp_exclusions import resolve_nssp_exclusion_version
 from ._utils import ensure_list
 from .get_nnh_pmfs import (
     get_nnh_delay_pmf,
@@ -9,7 +10,6 @@ from .get_nnh_pmfs import (
 )
 from .nhsn import get_nhsn_hrd, resolve_nhsn_hrd_version
 from .nssp import get_nssp, resolve_nssp_version
-from .nssp_with_exclusion import get_nssp_with_exclusion
 
 __all__ = [
     "get_nhsn_hrd",
@@ -17,7 +17,7 @@ __all__ = [
     "get_nnh_delay_pmf",
     "get_nnh_generation_interval_pmf",
     "get_nnh_right_truncation_pmf",
-    "get_nssp_with_exclusion",
+    "resolve_nssp_exclusion_version",
     "resolve_nhsn_hrd_version",
     "resolve_nssp_version",
     "resolve_nnh_delay_pmf_version",
